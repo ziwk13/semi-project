@@ -1,4 +1,4 @@
-# Puppit (semi-projcet)
+# Puppit (semi-project)
 
 반려동물 용품 중고거래 웹 애플리케이션. 학원 팀 프로젝트
 [`choimeeyoung94/semi-team-project`](https://github.com/choimeeyoung94/semi-team-project)
