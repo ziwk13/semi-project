@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mybatis.mapper.wishListMapper">
+
+  <select id="getWishListByUserId" parameterType="java.lang.Integer" resultType="org.puppit.model.dto.WishListDTO">
+    SELECT wishlist_id, user_id, product_id
+    FROM wishlist
+    WHERE user_id = #{userId}
+  </select>
+  
+  <delete id="deleteWishListByUserAndProduct">
+    DELETE FROM wishlist
+    WHERE user_id = #{userId}
+    AND product_id IN
+    <foreach collection="productIds" item="p" open="(" separator= "," close=")">
+      #{p}
+    </foreach>
+  </delete>
+  
+  <delete id="deleteAllWishListByUser">
+    DELETE FROM wishlist
+    WHERE user_id = #{userId}
+  </delete>
+  
+  <select id="getProductById" resultType="org.puppit.model.dto.ProductDTO">
+    SELECT product_id, product_name, product_price, product_description
+    FROM product
+    WHERE product_id = #{productId}
+  </select>
+  
+  <select id="getProductImage" resultType="org.puppit.model.dto.ProductImageDTO">
+    SELECT image_id, product_id, image_url, image_key, is_thumbnail
+    FROM product_image
+    WHERE product_id = #{productId} AND is_thumbnail = 1;
+  </select>
+  
+  <select id="getProductAndImage" resultType="org.puppit.model.dto.ProductAndImageDTO">
+    SELECT p.product_id, p.product_name, p.product_price, p.product_description, i.image_id, i.image_url, i.image_key, i.is_thumbnail
+    FROM product p
+    JOIN product_image i
+    ON p.product_id = i.product_id AND i.is_thumbnail = 1
+    WHERE p.product_id = #{productId}
+  </select>
+  
+  <select id="selectWishListProducts" resultType="org.puppit.model.dto.ProductAndImageDTO">
+      SELECT
+        p.product_id,      
+        p.product_name,    
+        p.product_price,           
+        img.image_url,
+        p.product_created_at,
+        l.region
+      FROM wishlist w
+      JOIN product p ON p.product_id = w.product_id
+      LEFT JOIN product_image img 
+             ON img.product_id = p.product_id
+            AND img.is_thumbnail = 1
+      LEFT JOIN location l 
+             ON l.location_id = p.location_id
+      WHERE w.user_id = #{userId}
+      ORDER BY w.created_at DESC
+  </select>
+  
+  <insert id="insertWishList">
+    INSERT INTO wishlist(user_id, product_id)
+    VALUES(#{userId}, #{productId})
+  </insert>
+  
+  <select id="existsByUserAndProduct" parameterType="map" resultType="int">
+    SELECT CASE WHEN EXISTS (
+      SELECT 1
+      FROM wishlist
+      WHERE user_id = #{userId} AND product_id = #{productId}
+    ) THEN 1 ELSE 0 END
+  </select>
+  
+  <select id="getCountByProductId" parameterType="int" resultType="int">
+    SELECT COUNT(*) 
+    FROM wishlist
+    WHERE product_id = #{productId}
+  </select>
+  
+</mapper>

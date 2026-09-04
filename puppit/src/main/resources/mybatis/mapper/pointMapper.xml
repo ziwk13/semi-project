@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mybatis.mapper.pointMapper">
+
+  <update id="updatePoint" parameterType="map">
+    UPDATE user
+    SET point = point + #{amount}
+    WHERE user_id = #{uid}
+  </update>
+  
+  <update id="decreaseIfEnough" parameterType="map">
+    UPDATE user
+    SET point = point - #{amount}
+    WHERE user_id = #{uid}
+    AND point >= #{amount}
+  </update>
+  
+  <insert id="insertPointRecord" parameterType="map">
+    INSERT INTO point_charge(user_id, point_charge_amount, point_charge_order_number)
+    VALUES (#{uid}, #{amount}, #{uuid})
+  </insert>
+  
+  <update id="updatePointRecord" parameterType="map">
+    UPDATE point_charge
+    SET charge_status = #{status},
+        point_charge_charged_at = NOW()
+    WHERE point_charge_order_number = #{merchantUid}
+  </update>
+  
+  <select id="selectPointRecordById" parameterType="map" resultType="org.puppit.model.dto.PointDTO">
+    SELECT charge_id, user_id, point_charge_amount, point_charge_order_number, point_charge_charged_at, charge_status
+    FROM point_charge
+    WHERE user_id = #{userId}
+    ORDER BY point_charge_charged_at DESC
+  </select>
+  
+  <select id="findByMerchantUidForUpdate" parameterType="string" resultType="org.puppit.model.dto.PointDTO">
+    SELECT 
+      charge_id,
+      user_id,
+      point_charge_amount,
+      point_charge_order_number,
+      point_charge_charged_at,
+      charge_status
+    FROM point_charge
+    WHERE point_charge_order_number = #{merchantUid}
+    FOR UPDATE
+  </select>
+  
+  <update id="updateRefundInfo" parameterType="map">
+    UPDATE point_charge
+    SET charge_status = #{status}
+    WHERE point_charge_order_number = #{merchantUid}
+  </update>
+  
+</mapper>

@@ -1,0 +1,42 @@
+# ===== Secrets (절대 커밋 금지) =====
+application-secret.properties
+**/application-secret.properties
+*.pem
+*.key
+
+# ===== Build =====
+target/
+build/
+out/
+bin/
+*.class
+*.war
+*.jar
+*.ear
+*.zip
+*.tar.gz
+
+# ===== Logs =====
+*.log
+logs/
+hs_err_pid*
+replay_pid*
+
+# ===== IDE =====
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+.springBeans
+.metadata/
+*.launch
+local.properties
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+Desktop.ini
+~$*
+*.bak
+*.swp

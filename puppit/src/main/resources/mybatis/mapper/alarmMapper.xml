@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  <mapper namespace="mybatis.mapper.alarmMapper">
+  
+  <select id="countDuplicateAlarm" parameterType="org.puppit.model.dto.AlarmDuplicationDTO" resultType="Integer">
+SELECT COUNT(*)
+FROM room r
+JOIN alarm a ON r.room_id = a.room_id
+JOIN chat c ON a.message_id = c.message_id
+WHERE r.room_id = #{roomId}
+  AND a.user_id = #{userId}
+  AND c.chat_message = #{chatMessage}
+  
+  
+  </select>	
+  
+     <!-- 알림 읽음 처리 (messageId로) -->
+    <update id="updateReadStatus" parameterType="org.puppit.model.dto.AlarmReadDTO" >
+	    UPDATE alarm
+	SET is_read = 0
+	WHERE message_id = #{messageId};
+		
+    </update>
+  
+  
+	<update id="updateAllReadStatus" parameterType="map">
+	   UPDATE alarm
+	SET is_read = 0
+	WHERE message_id IN (
+	    SELECT t.message_id
+	    FROM (
+	        SELECT a.message_id
+	        FROM alarm a
+	        JOIN chat c ON a.message_id = c.message_id
+	        WHERE a.room_id = #{roomId}
+	          AND c.chat_receiver = #{userId}
+	          AND a.is_read = 1
+	        ORDER BY a.message_id DESC
+	        LIMIT 7
+	    ) t
+	);
+	</update>
+
+	<select id="getUnreadCountsForUser" parameterType="int" resultType="map">
+	     SELECT a.room_id, COUNT(*) AS unread_count
+    FROM alarm a
+    JOIN chat c ON a.message_id = c.message_id
+    WHERE a.is_read = 1
+      AND c.chat_receiver = #{userId}
+    GROUP BY a.room_id
+	</select>
+
+
+
+</mapper>

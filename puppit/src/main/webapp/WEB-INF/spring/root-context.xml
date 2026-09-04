@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="
+         http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans.xsd
+         http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context.xsd
+         http://www.springframework.org/schema/tx
+         http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <!-- @Component/@Configuration 스캔 -->
+    <context:component-scan base-package="org.puppit" />
+    <context:annotation-config />
+
+    <!-- 0) 외부 설정 로딩 (application-secret.properties 는 git 에 커밋하지 않음)
+         우선순위: 시스템 프로퍼티 / 환경변수 > application-secret.properties -->
+    <context:property-placeholder location="classpath:application-secret.properties"
+                                  system-properties-mode="OVERRIDE"/>
+
+    <!-- 1) HikariConfig -->
+    <bean id="hikariConfig" class="com.zaxxer.hikari.HikariConfig">
+    <property name="driverClassName" value="com.mysql.cj.jdbc.Driver"/>
+    <property name="jdbcUrl" value="${db.url}"/>
+    <property name="username" value="${db.username}"/>
+    <property name="password" value="${db.password}"/>
+   </bean>
+
+    <!-- 2) DataSource -->
+    <bean id="hikariDataSource" class="com.zaxxer.hikari.HikariDataSource">
+        <constructor-arg ref="hikariConfig"/>
+    </bean>
+
+    <!-- 3) MyBatis -->
+    <bean id="sqlSessionFactoryBean" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="hikariDataSource"/>
+        <property name="configLocation" value="classpath:mybatis/config/mybatis-config.xml"/>
+        <property name="mapperLocations" value="classpath:mybatis/mapper/*Mapper.xml"/>
+    </bean>
+
+    <bean id="sqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg ref="sqlSessionFactoryBean"/>
+    </bean>
+
+    <!-- 4) 트랜잭션 -->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="hikariDataSource"/>
+    </bean>
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+
+    <!-- 5) 파일 업로드 -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <property name="defaultEncoding" value="UTF-8"/>
+        <property name="maxUploadSize" value="104857600"/> <!-- 100MB -->
+        <property name="maxUploadSizePerFile" value="10485760"/> <!-- 10MB -->
+    </bean>
+    
+
+
+ </beans>

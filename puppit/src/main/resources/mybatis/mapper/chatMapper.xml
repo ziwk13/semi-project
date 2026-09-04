@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mybatis.mapper.chatMapper">
+  
+<resultMap id="ChatListMap" type="org.puppit.model.dto.ChatListDTO">
+    <result property="roomId" column="roomId"/>
+    <result property="productId" column="productId"/>
+    <result property="productName" column="productName"/>
+    <result property="productPrice" column="productPrice"/>
+    <result property="sellerId" column="sellerId"/>
+    <result property="sellerName" column="sellerName"/>
+    <result property="sellerAccountId" column="sellerAccountId"/>
+    <result property="sellerNickName" column="sellerNickName"/>
+    <result property="buyerNickName" column="buyerNickName"/>
+    <result property="otherUserId" column="otherUserId"/>
+    <result property="otherAccountId" column="otherAccountId"/>
+    <result property="otherUserName" column="otherUserName"/>
+    <result property="lastMessage" column="lastMessage"/>
+    <result property="lastMessageSenderId" column="lastMessageSenderId"/>
+    <result property="lastMessageSenderAccountId" column="lastMessageSenderAccountId"/>
+    <result property="lastMessageSenderName" column="lastMessageSenderName"/>
+    <result property="lastMessageReceiverId" column="lastMessageReceiverId"/>
+    <result property="lastMessageReceiverAccountId" column="lastMessageReceiverAccountId"/>
+    <result property="lastMessageReceiverName" column="lastMessageReceiverName"/>
+    <result property="sortTime" column="sortTime"/>
+    <result property="lastMessageAt" column="lastMessageAt"/>
+    <result property="otherProfileImageKey" column="otherProfileImageKey"/>
+    <result property="chatLastMessageAt" column="chatLastMessageAt"/>
+</resultMap>  
+  
+  
+<!-- 내가 로그인 해서 내가 채팅한 모든 사용자들과의 마지막 메시지만 불러오는 코드 -->  
+<select id="getChatList" resultMap="ChatListMap">
+
+
+SELECT
+  r.room_id                  AS roomId,
+  p.product_id               AS productId,
+  p.product_name             AS productName,
+  p.product_price            AS productPrice,
+  -- 상대방 정보 (내가 sender면 receiver, 내가 receiver면 sender)
+  CASE
+      WHEN c.chat_sender = #{userId} THEN receiver.user_id
+      ELSE sender.user_id
+  END                        AS otherUserId,
+  CASE
+      WHEN c.chat_sender = #{userId} THEN receiver.account_id
+      ELSE sender.account_id
+  END                        AS otherAccountId,
+  CASE
+      WHEN c.chat_sender = #{userId} THEN receiver.user_name
+      ELSE sender.user_name
+  END                        AS otherUserName,
+  -- 구매자 닉네임
+  buyer.nick_name            AS buyerNickName,
+  -- 판매자 닉네임 추가!
+  seller.nick_name           AS sellerNickName,
+  -- 마지막 메시지 정보
+  c.chat_message             AS lastMessage,
+  c.chat_created_at          AS lastMessageAt,
+  c.chat_sender              AS lastMessageSenderId,
+  sender.account_id          AS lastMessageSenderAccountId,
+  sender.user_name           AS lastMessageSenderName,
+  c.chat_receiver            AS lastMessageReceiverId,
+  receiver.account_id        AS lastMessageReceiverAccountId,
+  receiver.user_name         AS lastMessageReceiverName
+FROM (
+  SELECT chat_room_id, MAX(message_id) AS max_message_id
+  FROM chat
+  WHERE chat_sender = #{userId} OR chat_receiver = #{userId}
+  GROUP BY chat_room_id
+) last_msg
+JOIN chat c ON c.chat_room_id = last_msg.chat_room_id AND c.message_id = last_msg.max_message_id
+JOIN room r ON c.chat_room_id = r.room_id
+JOIN product p ON r.product_id = p.product_id
+JOIN user sender ON c.chat_sender = sender.user_id
+JOIN user receiver ON c.chat_receiver = receiver.user_id
+JOIN user buyer ON r.user_id = buyer.user_id
+
+JOIN user seller ON p.seller_id = seller.user_id
+ORDER BY c.chat_created_at DESC
+</select>
+  
+  <select id="getTotalChatCount" parameterType="int" resultType="int">
+  	    SELECT COUNT(*)
+    FROM chat
+    WHERE chat_room_id = #{roomId}
+      AND (
+        (chat_sender = #{buyerId} AND chat_receiver = #{sellerId})
+        OR (chat_sender = #{sellerId} AND chat_receiver = #{buyerId})
+      )
+  
+  </select>
+  
+  <select id="getBuyerToSellerCount" parameterType="map" resultType="int">
+	  SELECT COUNT(*)
+	  FROM chat
+	  WHERE chat_room_id = #{roomId}
+	    AND chat_sender = #{buyerId}
+	    AND chat_receiver = #{sellerId}
+	</select>
+  
+  
+ <select id="getChatMyProfileImage" parameterType="map"  resultType="org.puppit.model.dto.ChaListProfileImageDTO">
+  	  SELECT
+        r.room_id AS chat_room_id,
+        p.product_name,
+        c.chat_message,
+        sender.user_id AS chat_sender_user_id,
+        receiver.user_id AS chat_receiver_user_id,
+        sender.profile_image_key AS senderProfileImageKey,
+        receiver.profile_image_key AS receiverProfileImageKey,
+        p.seller_id AS product_seller_id,
+        seller.user_id AS product_seller_user_id,
+        seller.profile_image_key AS sellerProfileImageKey,
+        CASE 
+            WHEN #{userId} = sender.user_id THEN receiver.profile_image_key
+            WHEN #{userId} = receiver.user_id THEN sender.profile_image_key
+            ELSE seller.profile_image_key
+        END AS otherProfileImageKey
+    FROM room r
+    INNER JOIN product p ON r.product_id = p.product_id
+    LEFT JOIN chat c ON r.room_id = c.chat_room_id
+    LEFT JOIN user sender ON c.chat_sender = sender.user_id
+    LEFT JOIN user receiver ON c.chat_receiver = receiver.user_id
+    LEFT JOIN user seller ON p.seller_id = seller.user_id
+    WHERE
+        r.user_id = #{userId}
+        OR p.seller_id = #{userId}
+    ORDER BY c.chat_created_at DESC, r.room_created_at DESC
+  
+  
+  </select>
+  
+   
+    <!-- room 테이블에서 방 삭제 -->
+    <delete id="deleteRoom" parameterType="int">
+        DELETE FROM room WHERE room_id = #{roomId}
+    </delete>
+  
+  <select id="findRoomIdsByProductId" resultType="int">
+    SELECT room_id FROM room WHERE product_id = #{productId}
+</select>
+
+<update id="deleteAlarmsByRoomIdCascade">
+    UPDATE alarm
+    SET is_deleted = 1
+    WHERE room_id = #{roomId}
+      AND message_id IN (
+        SELECT message_id FROM chat WHERE chat_room_id = #{roomId}
+      )
+</update>
+
+
+
+<update id="deleteAlarmsByRoomId">
+    UPDATE alarm
+	SET is_deleted = 1
+	WHERE room_id = #{roomId}
+</update>
+
+<update id="deleteChatsByRoomId">
+    UPDATE chat
+	SET is_deleted = 1
+	WHERE chat_room_id = #{roomId};
+</update>
+
+<update id="deleteRoomsByProductId">
+    UPDATE room
+	SET is_deleted = 1
+	WHERE product_id = #{productId};
+</update>
+  
+</mapper>

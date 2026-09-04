@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.puppit.review">
+
+  <!-- 리뷰 생성 -->
+  <insert id="insertReview">
+    INSERT INTO review(seller_id, buyer_id, product_id, content, rating)
+    VALUES (#{sellerId}, #{buyerId}, #{productId}, #{content}, #{rating})
+  </insert>
+  
+  <!-- 다른사람 리뷰 조회 -->
+  <select id="selectOtherReviewById" resultType="org.puppit.model.dto.ReviewDTO">
+    SELECT r.review_id, 
+           r.seller_id, 
+           r.buyer_id, 
+           r.product_id, 
+           r.content, 
+           r.rating, 
+           r.created_at, 
+           r.updated_at, 
+           s.nick_name AS sellerNickname,
+           b.nick_name AS buyerNickname,
+           p.product_name
+    FROM review r
+    JOIN `user` s ON r.seller_id = s.user_id
+    JOIN `user` b ON r.buyer_id = b.user_id
+    JOIN product p ON r.product_id = p.product_id
+    WHERE r.seller_id = #{userId}
+    ORDER BY r.updated_at DESC
+  </select>
+  
+  <!-- 내가 쓴 리뷰 조회 -->
+  <select id="selectMyReviewById" resultType="org.puppit.model.dto.ReviewDTO">
+    SELECT r.review_id, 
+           r.seller_id, 
+           r.buyer_id, 
+           r.product_id, 
+           r.content, 
+           r.rating, 
+           r.created_at, 
+           r.updated_at, 
+           s.nick_name AS sellerNickname,
+           b.nick_name AS buyerNickname,
+           p.product_name
+    FROM review r
+    JOIN `user` s ON r.seller_id = s.user_id
+    JOIN `user` b ON r.buyer_id = b.user_id
+    JOIN product p ON r.product_id = p.product_id
+    WHERE r.buyer_id = #{userId}
+    ORDER BY r.updated_at DESC
+  </select>
+  
+  <!-- 리뷰 삭제 -->
+  <delete id="deleteReviewById">
+    DELETE FROM review
+    WHERE review_id = #{reviewId}
+  </delete>
+  
+  <!-- 리뷰 수정 -->
+  <update id="updateReviewById" parameterType="map">
+    UPDATE review 
+    SET content = #{content}, 
+        rating = #{rating},
+        updated_at = NOW()
+    WHERE review_id = #{reviewId}
+  </update>
+  
+  <!-- 리뷰 작성용 정보조회 -->
+  <select id="selectInfo" parameterType="map" resultType="org.puppit.model.dto.ReviewInfoDTO">
+    SELECT b.nick_name AS buyerNickname,
+           s.nick_name AS sellerNickname,
+           p.product_name AS productName
+    FROM product p
+    JOIN user b ON b.user_id = #{buyerId}
+    JOIN user s ON s.user_id = #{sellerId}
+    WHERE p.product_id = #{productId}
+  </select>
+
+</mapper>
+
+

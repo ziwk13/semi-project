@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mybatis.mapper.chatMessageMapper">
+  
+<!-- 내가 채팅한 사람과 채팅 메시지를 전부 불러오는 코드, 채팅을 보내는 사람과 받는 사람의 seller, buyer 구분, 어떤 product에 대해서 채팅하고 있는지 -->
+ <!-- 내가 채팅한 사람과 채팅 메시지를 전부 불러오는 코드
+       - 판매자/구매자 역할 구분
+       - 어떤 product에 대한 채팅인지
+       - 역할이 '판매자'일 때 해당 사용자의 seller_id도 함께 반환 -->
+<select id="getChatMessageList" resultType="map" parameterType="org.puppit.model.dto.ChatMessageSelectDTO">
+
+SELECT
+    c.message_id,
+    c.chat_room_id,
+    r.product_id,
+
+    c.chat_sender,
+    sender.nick_name   AS sender_account_id,
+    sender.user_name   AS sender_user_name,
+
+    c.chat_receiver,
+    receiver.nick_name AS receiver_account_id,
+    receiver.user_name AS receiver_user_name,
+
+    c.chat_message,
+    c.chat_created_at,
+
+    -- 내가 보낸/받은 메시지 여부
+    CASE WHEN c.chat_sender   = #{userId} THEN 1 ELSE 0 END AS sender_is_me,
+    CASE WHEN c.chat_receiver = #{userId} THEN 1 ELSE 0 END AS receiver_is_me,
+
+    -- 역할(판매자/구매자) 판정: product.seller_id 기준
+    CASE WHEN c.chat_sender   = p.seller_id THEN 'SELLER' ELSE 'BUYER' END AS sender_role,
+    CASE WHEN c.chat_receiver = p.seller_id THEN 'SELLER' ELSE 'BUYER' END AS receiver_role,
+
+    p.seller_id AS product_seller_id,
+    r.user_id AS buyer_id,
+
+    CASE WHEN c.chat_sender   = p.seller_id THEN p.seller_id ELSE NULL END AS sender_seller_id,
+    CASE WHEN c.chat_receiver = p.seller_id THEN p.seller_id ELSE NULL END AS receiver_seller_id,
+
+    seller.nick_name AS chat_seller_nick_name      -- ★ 상품 판매자 닉네임 추가
+
+FROM chat c
+JOIN room    r       ON c.chat_room_id = r.room_id
+JOIN product p       ON r.product_id   = p.product_id
+JOIN user sender     ON c.chat_sender   = sender.user_id
+JOIN user receiver   ON c.chat_receiver = receiver.user_id
+JOIN user seller     ON p.seller_id     = seller.user_id   -- ★ 판매자 닉네임용 추가
+
+WHERE c.chat_room_id = #{roomId}
+ORDER BY c.chat_created_at ASC
+</select>
+  
+  
+  
+<select id="getProduct" resultType="org.puppit.model.dto.ChatMessageProductDTO" parameterType="java.lang.Integer">
+
+SELECT product_id, product_name, product_price, seller_id
+from product
+where product_id = #{product_Id}
+
+
+
+
+</select>  
+
+
+<insert id="insertChatMessage" parameterType="org.puppit.model.dto.ChatMessageDTO" useGeneratedKeys="true" keyProperty="messageId">
+ INSERT INTO chat (chat_room_id, chat_sender, chat_message, chat_receiver)
+  VALUES (#{chatRoomId}, #{chatSender}, #{chatMessage}, #{chatReceiver})
+</insert>
+  
+ 
+ <!-- 아래는 **채팅 메시지를 보낸 사람이 BUYER(구매자)인지 SELLER(판매자)인지, 그리고 채팅방의 참여자 정보(수신자, 역할, buyerId 등)**를 모두 알 수 있는 MySQL 쿼리  --> 
+<select id="getUserRoleANDAboutChatMessagePeople" parameterType="org.puppit.model.dto.ChatMessageSearchDTO" resultType="org.puppit.model.dto.ChatRoomPeopleDTO">
+SELECT
+    c.message_id,
+    c.chat_room_id,
+    r.product_id,
+
+    c.chat_sender,
+    sender.nick_name   AS sender_account_id,
+    sender.user_name    AS sender_user_name,
+
+    c.chat_receiver,
+    receiver.nick_name AS receiver_account_id,
+    receiver.user_name  AS receiver_user_name,
+
+    c.chat_message,
+    c.chat_created_at,
+
+    -- 내가 보낸/받은 메시지 여부 (여기서 1은 로그인 사용자 ID로 대체 가능)
+    CASE WHEN c.chat_sender   = #{loginUserId} THEN 1 ELSE 0 END AS sender_is_me,
+    CASE WHEN c.chat_receiver = #{loginUserId} THEN 1 ELSE 0 END AS receiver_is_me,
+
+    -- 역할(판매자/구매자) 판정: product.seller_id 기준
+    CASE WHEN c.chat_sender   = p.seller_id THEN 'SELLER' ELSE 'BUYER' END AS sender_role,
+    CASE WHEN c.chat_receiver = p.seller_id THEN 'SELLER' ELSE 'BUYER' END AS receiver_role,
+
+    -- 상품의 seller_id (항상 제공)
+    p.seller_id AS product_seller_id,
+
+    -- 구매자(buyer_id) - 이 방의 user_id가 구매자
+    r.user_id AS buyer_id,
+
+    -- 역할이 '판매자'일 때만 해당 컬럼에 seller_id 채움(아니면 NULL)
+    CASE WHEN c.chat_sender   = p.seller_id THEN p.seller_id ELSE NULL END AS sender_seller_id,
+    CASE WHEN c.chat_receiver = p.seller_id THEN p.seller_id ELSE NULL END AS receiver_seller_id
+
+FROM chat c
+JOIN room    r ON c.chat_room_id = r.room_id
+JOIN product p ON r.product_id   = p.product_id
+JOIN user sender   ON c.chat_sender   = sender.user_id
+JOIN user receiver ON c.chat_receiver = receiver.user_id
+WHERE c.chat_room_id = #{roomId}   -- ← 조회할 채팅방 번호
+ORDER BY c.chat_created_at ASC; 
+
+
+</select> 
+
+
+<!-- 기존 채팅방(room_id) 조회: buyer, 상품, seller 조합으로 하나만 조회 -->
+<select id="selectRoomIdByParticipants" parameterType="map" resultType="java.lang.Integer">
+    SELECT r.room_id
+    FROM room r
+    WHERE r.product_id = #{productId}
+      AND r.user_id = #{buyerId}
+      AND EXISTS (
+          SELECT 1 FROM product p
+          WHERE p.product_id = r.product_id
+            AND p.seller_id = #{sellerId}
+      )
+    LIMIT 1
+</select>
+
+<!-- 새로운 채팅방 생성 (buyer가 생성자) -->
+<insert id="insertRoom" parameterType="map" useGeneratedKeys="true" keyProperty="room_id">
+    INSERT INTO room (product_id, user_id)
+    VALUES (#{productId}, #{buyerId})
+</insert>
+  
+<select id="getChatRooms" resultType="org.puppit.model.dto.ChatListDTO" parameterType="map">
+    SELECT 
+        r.room_id,
+        r.product_id,
+        p.product_name,
+        p.seller_id,
+        u.user_name AS buyer_name,
+        (SELECT c.chat_message 
+         FROM chat c 
+         WHERE c.chat_room_id = r.room_id 
+         ORDER BY c.chat_created_at DESC LIMIT 1) AS last_message,
+        COALESCE(
+            (SELECT c.chat_created_at 
+             FROM chat c 
+             WHERE c.chat_room_id = r.room_id 
+             ORDER BY c.chat_created_at DESC LIMIT 1),
+            r.room_created_at
+        ) AS sort_time
+    FROM room r
+    JOIN product p ON r.product_id = p.product_id
+    JOIN user u ON r.user_id = u.user_id
+    WHERE r.user_id = #{userId}
+       OR p.seller_id = #{userId}
+    ORDER BY 
+        CASE WHEN r.room_id = #{highlightRoomId} THEN 0 ELSE 1 END,
+        sort_time DESC
+</select>
+  
+  
+<select id="getChatRoomsByCreatedDesc" resultType="org.puppit.model.dto.ChatListDTO" parameterType="map">
+      
+SELECT
+    r.room_id,
+    r.product_id,
+    p.product_name,
+    p.product_price,
+    p.seller_id,
+    buyer.account_id AS buyer_account_id,
+    p.product_name,
+    p.product_price,
+    seller.nick_name AS seller_nick_name,
+    buyer.user_name AS buyer_name,
+    buyer.nick_name AS buyer_nick_name,
+    seller.account_id AS seller_account_id,
+    seller.user_name AS seller_name,
+    last_msg.chat_message AS last_message,
+    last_msg.chat_created_at AS last_message_at,
+    last_msg.chat_sender AS last_message_sender_id,
+    sender.nick_name AS last_message_sender_account_id,
+    sender.user_name AS last_message_sender_name,
+    last_msg.chat_receiver AS last_message_receiver_id,
+    receiver.nick_name AS last_message_receiver_account_id,
+    receiver.user_name AS last_message_receiver_name
+FROM room r
+JOIN product p ON r.product_id = p.product_id
+JOIN user buyer ON r.user_id = buyer.user_id
+JOIN user seller ON p.seller_id = seller.user_id
+LEFT JOIN (
+    SELECT c1.*
+    FROM chat c1
+    INNER JOIN (
+        SELECT chat_room_id, MAX(chat_created_at) AS max_created_at
+        FROM chat
+        WHERE is_deleted = 0
+        GROUP BY chat_room_id
+    ) c2
+    ON c1.chat_room_id = c2.chat_room_id AND c1.chat_created_at = c2.max_created_at
+    WHERE c1.is_deleted = 0
+) last_msg ON r.room_id = last_msg.chat_room_id
+LEFT JOIN user sender ON last_msg.chat_sender = sender.user_id
+LEFT JOIN user receiver ON last_msg.chat_receiver = receiver.user_id
+WHERE
+    (
+        r.user_id = #{userId}
+        OR p.seller_id = #{userId}
+        OR EXISTS (
+            SELECT 1
+            FROM chat c2
+            WHERE c2.chat_room_id = r.room_id
+              AND (#{userId} IN (c2.chat_sender, c2.chat_receiver))
+              AND c2.is_deleted = 0
+        )
+    )
+    AND COALESCE(buyer.is_deleted, 0) = 0
+    AND COALESCE(seller.is_deleted, 0) = 0
+    AND (sender.is_deleted IS NULL OR sender.is_deleted = 0)
+    AND (receiver.is_deleted IS NULL OR receiver.is_deleted = 0)
+ORDER BY
+    (last_msg.chat_created_at IS NULL) DESC,
+    last_msg.chat_created_at DESC,
+    r.room_created_at ASC
+</select>  
+
+ <!-- roomId를 기반으로 productId만 조회 -->
+    <select id="findProductIdByRoomId" parameterType="Integer" resultType="Integer">
+        SELECT p.product_id
+        FROM room r
+        JOIN product p ON r.product_id = p.product_id
+        WHERE r.room_id = #{roomId}
+    </select>
+
+<select id="getProductWithSellerAccountId" resultType="org.puppit.model.dto.ChatMessageProductDTO" parameterType="java.lang.Integer">
+    SELECT 
+        product.product_id, 
+        product.product_name, 
+        product.product_price, 
+        product.seller_id,
+        user.account_id AS chat_seller_account_id
+    FROM 
+        product
+    JOIN 
+        user 
+    ON 
+        product.seller_id = user.user_id
+    WHERE 
+        product.product_id = #{productId}
+</select>
+  
+  
+
+    <!-- 상품 ID로 판매자 AccountId 조회 -->
+    <select id="getSellerAccountIdByProductId" parameterType="int" resultType="org.puppit.model.dto.ChatUserDTO">
+       SELECT 
+    u.account_id,
+    u.user_id,
+    u.user_name,
+    u.nick_name
+FROM product p
+INNER JOIN user u ON p.seller_id = u.user_id
+WHERE p.product_id = #{productId};
+    </select>
+    
+    
+    <select id="getChatParticipants" parameterType="map" resultType="org.puppit.model.dto.ChatRoomPeopleDTO">
+    	 SELECT
+            r.product_id,
+            p.seller_id AS product_seller_id,
+
+            -- Receiver 정보
+            CASE 
+                WHEN #{senderId} = p.seller_id THEN 'BUYER'
+                ELSE 'SELLER'
+            END AS receiver_role,
+            receiver.user_id AS receiver_id,
+            receiver.account_id AS receiver_account_id,
+            receiver.user_name AS receiver_user_name,
+
+            -- Sender 정보
+            CASE
+                WHEN #{senderId} = p.seller_id THEN 'SELLER'
+                ELSE 'BUYER'
+            END AS sender_role,
+            sender.user_id AS sender_id,
+            sender.account_id AS sender_account_id,
+            sender.user_name AS sender_user_name
+
+        FROM room r
+        JOIN product p ON r.product_id = p.product_id
+        JOIN user sender ON sender.user_id = #{senderId}
+        JOIN user receiver ON receiver.user_id = #{receiverId}
+        WHERE r.room_id = #{roomId}
+    
+    </select>
+    
+    <select id="getChatCountByRoomId" parameterType="Integer" resultType="int">
+    	 SELECT COUNT(*) 
+        FROM chat 
+        WHERE chat_room_id = #{roomId}
+    	    
+    </select>
+  
+  
+  	<select id="checkMessageDuplicate" parameterType="map" resultType="int">
+  		  SELECT COUNT(*) 
+        FROM chat 
+        WHERE chat_room_id = #{chatRoomId}
+          AND chat_sender = #{chatSender}
+          AND chat_message = #{chatMessage}
+          AND chat_created_at = #{chatCreatedAt}
+  	
+  	
+  	</select>
+  	
+  	<insert id="saveAlarmData" parameterType="map" useGeneratedKeys="true" keyProperty="alarmId">
+    INSERT INTO alarm (room_id, message_id, user_id, is_read)
+    VALUES (#{roomId}, #{messageId}, #{userId}, #{isRead})
+</insert>
+  	
+  	<select id="getReceiverInfoByUserId" parameterType="Integer" resultType="ChatUserDTO">
+  	    SELECT user_id, account_id, user_name, nick_name
+  		FROM user
+  		WHERE user_id = #{userId}
+  	
+  	
+  	</select>
+  	
+  	<select id="getProductNameById" parameterType="Integer" resultType="String">
+  		SELECT product_name
+  		FROM product
+  		WHERE product_id = #{parseInt}
+  	
+  	
+  	</select>
+  	
+  	<select id="mybatis.mapper.chatMessageMapper.getUnreadAlarms" parameterType="Integer" resultType="NotificationDTO">
+  	SELECT
+    a.*,
+    c.chat_message,
+    c.chat_created_at,
+    c.chat_sender,
+    sender.nick_name AS senderAccountId,          -- 발신자 accountId
+    c.chat_room_id AS roomId,
+    c.chat_receiver,
+    receiver.nick_name AS receiverAccountId,      -- 수신자 accountId
+    p.product_name                                -- 상품명
+FROM alarm a
+JOIN chat c ON a.message_id = c.message_id
+JOIN user sender ON c.chat_sender = sender.user_id         -- 발신자 정보 JOIN
+JOIN user receiver ON c.chat_receiver = receiver.user_id   -- 수신자 정보 JOIN
+JOIN room r ON a.room_id = r.room_id
+JOIN product p ON r.product_id = p.product_id
+WHERE c.chat_receiver = #{userId}   -- 로그인 사용자가 receiver
+  AND a.is_read = 1                 -- 읽지 않은 알림
+ORDER BY a.created_at DESC
+  	</select>
+  
+   
+  
+  
+</mapper>

@@ -1,0 +1,8 @@
+package puppit;
+
+import org.junit.Assert.*;
+import org.junit.Test;
+
+public class PuppitTest {
+
+}

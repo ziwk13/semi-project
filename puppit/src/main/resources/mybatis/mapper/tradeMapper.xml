@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mybatis.mapper.tradeMapper">
+
+  <resultMap type="org.puppit.model.dto.TradeDTO" id="TradeMap">
+    <id property="paymentId" column="payment_id" />
+    <result property="uuid" column="uuid" />
+    <result property="buyerId" column="buyer_id" />
+    <result property="sellerId" column="seller_id" />
+    <result property="productId" column="product_id" />
+    <result property="status" column="status" />
+    <result property="createdAt" column="created_at" />
+    <!-- 표시용 -->
+    <result property="buyerNickname" column="buyer_nickname" />
+    <result property="sellerNickname" column="seller_nickname" />
+    <result property="productName" column="product_name" />
+  </resultMap>
+
+  <insert id="insertTrade" parameterType="java.util.Map">
+    INSERT INTO trade_payment(uuid, buyer_id, seller_id, product_id, status)
+    VALUES(#{uuid}, #{buyerId}, #{sellerId}, #{productId}, #{status})
+  </insert>
+  
+  <select id="selectTradeById" parameterType="java.util.Map" resultMap="TradeMap">
+    SELECT 
+           t.payment_id
+         , t.uuid
+         , t.buyer_id
+         , t.seller_id
+         , t.product_id
+         , t.status
+         , t.created_at
+         , buyer.nick_name AS buyer_nickname
+         , seller.nick_name AS seller_nickname
+         , p.product_name AS product_name
+         , p.product_price AS product_price
+      FROM trade_payment t 
+      INNER JOIN user buyer ON t.buyer_id = buyer.user_id  
+      INNER JOIN user seller ON t.seller_id = seller.user_id 
+      INNER JOIN product p ON t.product_id = p.product_id
+     WHERE t.buyer_id = #{userId} OR t.seller_id = #{userId}
+     ORDER BY t.created_at DESC
+  </select>
+  
+  <update id="updateProductStatus">
+    UPDATE product
+    SET status_id = 3 
+    WHERE product_id = #{productId}
+  </update>
+
+</mapper>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="search">
+
+<!-- 상품 검색 -->
+<select id="searchByNew" parameterType="map" resultMap="product.MyProducts">
+  SELECT
+    p.product_id,
+    p.product_name,
+    p.product_price,
+    p.product_created_at,
+    p.product_updated_at,
+    p.category_id,
+    p.status_id,
+    c.category_name,
+    s.status_name,
+    t.image_id     AS thumb_image_id,
+    t.image_url    AS thumb_image_url,
+    t.is_thumbnail AS thumb_is_thumbnail
+  FROM product p
+  JOIN user u ON u.user_id = p.seller_id  AND u.is_deleted=0
+  JOIN product_category c ON p.category_id = c.category_id
+  JOIN product_status   s ON p.status_id   = s.status_id
+  LEFT JOIN product_image t
+         ON t.product_id = p.product_id
+        AND t.is_thumbnail = 1
+  WHERE p.product_name LIKE CONCAT('%', #{value}, '%')
+  ORDER BY COALESCE(p.product_updated_at, p.product_created_at) DESC, p.product_id DESC
+  LIMIT 40
+</select>
+
+<select id="selectTopKeywords" resultType="org.puppit.model.dto.SearchLogDTO">
+  SELECT search_keyword, COUNT(*) AS cnt
+  FROM search_log
+  WHERE search_keyword IS NOT NULL
+    AND TRIM(search_keyword) != ''
+  GROUP BY search_keyword
+  ORDER BY cnt DESC
+  LIMIT 5
+</select>
+    
+<insert id="insertTopKeywords" parameterType="org.puppit.model.dto.SearchLogDTO">
+    INSERT INTO search_log (user_id, search_keyword, searched_at)
+    VALUES (#{userId}, #{searchKeyword}, NOW())
+</insert>
+
+</mapper>
