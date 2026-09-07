@@ -3,6 +3,8 @@ application-secret.properties
 **/application-secret.properties
 *.pem
 *.key
+.env
+.env.local
 
 # ===== Build =====
 target/
