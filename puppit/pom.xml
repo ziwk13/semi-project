@@ -10,6 +10,9 @@
   
   <!-- properties : ${} (프로퍼티 대치 문법)을 이용해 가져다 사용할 수 있습니다. -->
   <properties>
+    <!-- 빌드가 OS 기본 인코딩(한국어 Windows=MS949)에 좌우되지 않도록 고정 -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <java.version>11</java.version>
     <spring.version>5.3.39</spring.version>
     <aspectj.version>1.9.22.1</aspectj.version>
