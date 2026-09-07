@@ -14,34 +14,22 @@
 
 ## 로컬 실행
 
-1. **설정 파일 생성**
+빠른 경로 (Docker + Maven Wrapper):
 
-   ```bash
-   cp puppit/src/main/resources/application-secret.properties.example \
-      puppit/src/main/resources/application-secret.properties
-   ```
+```bash
+cp .env.example .env
+docker compose up -d          # MySQL + 스키마/시드 자동 적용
 
-   생성한 파일에 실제 값 입력:
+cp puppit/src/main/resources/application-secret.properties.example \
+   puppit/src/main/resources/application-secret.properties
+#   최소 db.* 만 채우면 됨 (Docker 기본값: root / puppit / db_puppit)
 
-   | 키 | 설명 |
-   |---|---|
-   | `db.url` / `db.username` / `db.password` | MySQL 접속 정보 |
-   | `kakao.rest.api.key` / `kakao.redirect.uri` | Kakao Developers 앱 |
-   | `iamport.api.key` / `iamport.api.secret` | PortOne(구 아임포트) |
-   | `aws.s3.bucket` | S3 버킷 이름 |
+cd puppit && ./mvnw clean package     # Windows: .\mvnw.cmd clean package
+#   → target/puppit-1.0.0.war 를 Tomcat 9 webapps/ 에 puppit.war 로 배치
+#   → http://localhost:8080/puppit/
+```
 
-   AWS 자격증명은 환경변수로 주입: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
-
-2. **DB 스키마**: `puppit/src/main/resources/SCHEMA.sql` 참고 (외래키 순서상 그대로 실행은 안 되니 마스터 테이블부터 생성)
-
-3. **빌드 / 배포**
-
-   ```bash
-   cd puppit
-   mvn clean package        # target/puppit-1.0.0.war
-   ```
-
-   생성된 WAR 를 Tomcat 9 `webapps/` 에 `puppit.war` 로 배치 → `http://localhost:8080/puppit/`
+사전 요구사항, Docker 없이 실행, Kakao/S3/결제 키, 트러블슈팅은 **[docs/RUNNING.md](docs/RUNNING.md)** 참고.
 
 ## 원본과 달라진 점
 
@@ -55,9 +43,29 @@
 
 ## 고도화 TODO
 
+- [x] 빌드/실행 재현성: Maven Wrapper, `docker compose` 로 MySQL + 스키마/시드, `docs/RUNNING.md`
 - [ ] 인증/인가를 Spring Security 로 통합, CSRF 방어, IDOR 제거
 - [ ] 비밀번호 해시 BCrypt/Argon2 전환, 비밀번호 재설정 토큰 흐름
 - [ ] 결제 웹훅 + 거래 동시성/보상 트랜잭션, 포인트 원장 테이블
 - [ ] 전역 예외 처리 + 로깅 정리(System.out 제거), 에러 페이지
 - [ ] DB 인덱스/제약 정리, 테스트 골격 + CI
 - [ ] (선택) Spring Boot 3 / Java 17 / Jakarta 마이그레이션
+
+## 변경 이력
+
+### 2026-09-07 — 1단계: 빌드/실행 재현성
+
+- **Maven Wrapper 도입** (`puppit/mvnw`, `mvnw.cmd`, `.mvn/wrapper/`): 로컬에 Maven 설치 없이
+  `./mvnw clean package` 로 빌드 가능. `./mvnw clean package` → BUILD SUCCESS, `target/puppit-1.0.0.war` 확인.
+- **`docker-compose.yml`** 신규: `docker compose up -d` 로 MySQL 8.0 컨테이너 기동 + 최초 1회
+  `SCHEMA.sql` → `docker/mysql/seed-dev.sql` 자동 적용. `.env.example` 로 접속 정보 외부화.
+- **`docker/mysql/seed-dev.sql`** 신규: 조회용 마스터 데이터(카테고리/상태/컨디션/지역) 개발 시드.
+- **`SCHEMA.sql`**: 앞뒤에 `SET FOREIGN_KEY_CHECKS = 0/1` 을 추가해 테이블 정의 순서와 무관하게
+  통째로 실행되도록 수정.
+- **`pom.xml`**: `project.build.sourceEncoding=UTF-8` 명시 — 빌드가 OS 기본 인코딩(한국어 Windows=MS949)에
+  좌우되던 문제 제거.
+- **`PuppitTest.java`**: 컴파일이 깨져 있던 `import org.junit.Assert.*;` 를 정정하고 스모크 테스트 1개 추가.
+- **`docs/RUNNING.md`** 신규: 사전 요구사항 / Docker 유무별 DB 준비 / 빌드 / Tomcat 배포 / 외부 키 /
+  트러블슈팅까지 로컬 실행 전 과정을 문서화. README 의 "로컬 실행" 섹션은 요약본으로 축소.
+- 정리: `puppit/src/main/resources/target/` 에 쌓여 있던 과거 빌드 산출물(약 68MB, 미추적)이
+  리소스로 딸려 들어가 WAR 가 99MB 로 부풀던 것을 확인하고 제거 → WAR 32.8MB 로 정상화.
