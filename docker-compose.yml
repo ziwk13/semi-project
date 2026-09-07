@@ -1,0 +1,32 @@
+# 로컬 개발용 인프라. 앱(WAR)은 Tomcat 에 직접 올린다. (docs/RUNNING.md 참고)
+#
+#   docker compose up -d      # MySQL 기동 (최초 1회 스키마 + 시드 자동 적용)
+#   docker compose down       # 중지 (데이터 유지)
+#   docker compose down -v    # 중지 + 데이터 삭제 (스키마부터 다시)
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: puppit-mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-puppit}
+      MYSQL_DATABASE: ${DB_NAME:-db_puppit}
+      TZ: UTC
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - puppit-mysql-data:/var/lib/mysql
+      # 컨테이너의 데이터 디렉터리가 비어 있을 때(=최초 기동) 파일명 순서대로 1회 실행된다.
+      - ./puppit/src/main/resources/SCHEMA.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./docker/mysql/seed-dev.sql:/docker-entrypoint-initdb.d/02-seed-dev.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD:-puppit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  puppit-mysql-data:
