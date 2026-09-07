@@ -1,3 +1,11 @@
+-- ---------------------------------------------------------------------------
+-- Puppit 스키마 DDL
+-- 테이블 정의 순서가 FK 참조 순서와 맞지 않으므로, 통째로 실행할 수 있도록
+-- FK 체크를 잠시 끈다. (개별 실행/부분 실행도 그대로 가능)
+-- ---------------------------------------------------------------------------
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
 CREATE TABLE `user` (
   `user_id` int NOT NULL AUTO_INCREMENT,
   `account_id` varchar(20) NOT NULL,
@@ -261,6 +269,8 @@ CREATE TABLE `wishlist` (
   CONSTRAINT `wishlist_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE,
   CONSTRAINT `wishlist_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `product` (`product_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=130 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+SET FOREIGN_KEY_CHECKS = 1;
 
 
 
