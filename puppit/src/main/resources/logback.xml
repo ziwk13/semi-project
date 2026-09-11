@@ -8,6 +8,21 @@
   <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
       <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+    </encoder>
+  </appender>
+
+  <!-- Tomcat을 startup.bat으로 띄우면 콘솔은 별도 창으로 열려 파일로 못 잡는다.
+       그래서 logs/puppit-app.log 에도 같이 남긴다(${catalina.home}이 없으면 현재 폴더에 생성). -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${catalina.home:-.}/logs/puppit-app.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${catalina.home:-.}/logs/puppit-app.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <maxHistory>7</maxHistory>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
     </encoder>
   </appender>
 
@@ -17,5 +32,6 @@
   <!-- 그 외(Spring/MyBatis 등 서드파티)는 WARN 이상만 -->
   <root level="WARN">
     <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
   </root>
 </configuration>
