@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
@@ -158,9 +159,14 @@ public class UserController {
   
   // 로그인 폼 보여주기
   @GetMapping("/login")
-  public String loginForm(Model model) {
+  public String loginForm(Model model, HttpSession session) {
     model.addAttribute("kakaoApiKey", kakaoApiKey);
     model.addAttribute("redirectUri", kakaoRedirectUri);
+    // 카카오 OAuth state — 콜백에서 검증해 로그인 CSRF(공격자 계정으로 피해자 세션이
+    // 로그인되도록 유도하는 공격)를 막는다. 1회용이라 콜백 처리 후 세션에서 제거한다.
+    String kakaoState = UUID.randomUUID().toString();
+    session.setAttribute("kakaoOAuthState", kakaoState);
+    model.addAttribute("kakaoState", kakaoState);
     return "user/login";
   }
   // 로그인
