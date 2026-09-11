@@ -1,5 +1,7 @@
 package org.puppit.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -116,11 +118,15 @@ public class UserServiceImpl implements UserService {
       String Password = user.getUserPassword();
       String encryptedPassword = secureUtil.hashPBKDF2(Password, salt); // returns hex string
       
-      // 4) DB에 저장된 해시와 안전비교
+      // 4) DB에 저장된 해시와 안전비교 (문자열 길이로 조기 반환되는 String.equals 대신
+      //    타이밍 공격에 강한 상수시간 비교 사용)
       String storedHash = auth.getUserPassword(); // DB에 저장된 해시 (hex)
       if (storedHash == null) return null;
-      
-      return encryptedPassword.equals(auth.getUserPassword()) ? auth : null;
+
+      boolean matched = MessageDigest.isEqual(
+          encryptedPassword.getBytes(StandardCharsets.UTF_8),
+          storedHash.getBytes(StandardCharsets.UTF_8));
+      return matched ? auth : null;
       
     } catch (Exception e) {
       e.printStackTrace();
@@ -139,7 +145,9 @@ public class UserServiceImpl implements UserService {
       return false;
     }
     String encryptedPassword = secureUtil.hashPBKDF2(userPassword, auth.getSalt());
-    return encryptedPassword.equals(auth.getUserPassword());
+    return MessageDigest.isEqual(
+        encryptedPassword.getBytes(StandardCharsets.UTF_8),
+        auth.getUserPassword().getBytes(StandardCharsets.UTF_8));
   }
   // 비밀번호 변경
   @Override
