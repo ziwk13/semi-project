@@ -206,7 +206,7 @@ public class UserController {
       }
       return "redirect:/";
   } catch (Exception e) {
-     e.printStackTrace();
+     log.error("로그인 처리 중 오류 (accountId={})", user.getAccountId(), e);
      redirectAttr.addFlashAttribute("error", "로그인 중 오류가 발생했습니다.");
      return "redirect:/user/login";
   }
@@ -320,7 +320,7 @@ public class UserController {
       }
       return "redirect:/user/profile";
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("비밀번호 재확인 처리 중 오류", e);
       redirectAttr.addFlashAttribute("error", "오류가 발생 했습니다");
       return "redirect:/user/mypage";
     }
