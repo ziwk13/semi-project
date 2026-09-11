@@ -134,21 +134,15 @@
       </form>
     </section>
 
-    <!-- 비밀번호 변경 (아이디만 알고 있는 간단 버전) -->
+    <!-- 비밀번호 변경: 아이디 입력 → 재설정 링크 발급(토큰) → 링크에서 새 비밀번호 입력 -->
     <section id="panel-reset-pw" class="tab-panel is-hidden" role="tabpanel" aria-labelledby="tab-reset-pw" aria-hidden="true">
       <form id="form-reset-pw" action="${contextPath}/user/reset-password" method="post" class="find-form" novalidate>
         <div class="form-group">
           <input type="text" name="accountId" id="accountId" placeholder="아이디" required autocomplete="username">
         </div>
-        <div class="form-group">
-          <input type="password" name="userPassword" id="userPassword" placeholder="새 비밀번호 (대문자 1개 포함, 영문/숫자/!@#만, 6~10자)" minlength="8" required autocomplete="new-password">
-        </div>
-        <div class="form-group">
-          <input type="password" name="confirmPassword" id="confirmPassword" placeholder="새 비밀번호 확인" minlength="8" required autocomplete="new-password">
-        </div>
-        <button type="submit" class="btn-primary">비밀번호 변경</button>
+        <button type="submit" class="btn-primary">재설정 링크 받기</button>
       </form>
-      <p class="msg" id="pwHelp">※ 보안을 위해 추후에 현재 비밀번호 확인/이메일 인증을 추가하는 것을 추천합니다.</p>
+      <p class="msg" id="pwHelp">※ 입력한 아이디로 15분간 유효한 재설정 링크를 보내드립니다. (데모 환경: 실제 이메일 대신 서버 로그에 링크가 출력됩니다)</p>
     </section>
 
     <div class="msg" id="resultMsg">${msg}</div>
@@ -194,18 +188,6 @@
     activate(tabPw, panelPw, tabId, panelId);
   });
 
-  // 비밀번호 확인 간단 검증
-  var formPw = document.getElementById('form-reset-pw');
-  if (formPw) {
-    formPw.addEventListener('submit', function (e) {
-      var np = document.getElementById('userPassword').value;
-      var cp = document.getElementById('confirmPassword').value;
-      if (np !== cp) {
-        e.preventDefault();
-        document.getElementById('resultMsg').textContent = '비밀번호가 일치하지 않습니다.';
-      }
-    });
-  }
   var activeTab = '${activeTab}';
   if (activeTab === 'resetPw') {
     activate(tabPw, panelPw, tabId, panelId);
