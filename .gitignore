@@ -1,6 +1,8 @@
 # ===== Secrets (절대 커밋 금지) =====
-application-secret.properties
-**/application-secret.properties
+# application-secret.properties 는 CHANGE_ME 플레이스홀더뿐인 템플릿이라 커밋한다.
+# 실제 값은 application-secret.local.properties 에만 채운다.
+application-secret.local.properties
+**/application-secret.local.properties
 *.pem
 *.key
 .env
