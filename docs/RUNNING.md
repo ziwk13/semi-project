@@ -53,9 +53,13 @@ mysql -u root -p db_puppit < docker/mysql/seed-dev.sql
 
 ## 2. 시크릿 설정 파일
 
+`application-secret.properties` 는 `CHANGE_ME` 뿐인 템플릿으로 git에 커밋돼 있다.
+이 파일을 복사해서 실제 값을 채운 `application-secret.local.properties` 를 만든다
+(이 파일만 `.gitignore` 처리되어 커밋되지 않는다).
+
 ```powershell
-copy puppit\src\main\resources\application-secret.properties.example ^
-     puppit\src\main\resources\application-secret.properties
+copy puppit\src\main\resources\application-secret.properties ^
+     puppit\src\main\resources\application-secret.local.properties
 ```
 
 생성한 파일에서 최소한 DB 항목만 채우면 로컬 구동이 된다. (Docker 기본값 기준)
@@ -65,8 +69,6 @@ db.url=jdbc:mysql://localhost:3306/db_puppit?serverTimezone=UTC&useUnicode=true&
 db.username=root
 db.password=puppit
 ```
-
-이 파일은 `.gitignore` 처리되어 커밋되지 않는다.
 
 ---
 
@@ -106,7 +108,7 @@ docker compose down          # DB 까지 내릴 때
 
 ## 5. 선택 기능용 외부 키
 
-`application-secret.properties` 및 환경변수에 값을 넣어야 해당 기능이 동작한다.
+`application-secret.local.properties` 및 환경변수에 값을 넣어야 해당 기능이 동작한다.
 
 | 기능 | 필요한 값 |
 |---|---|
@@ -121,7 +123,7 @@ docker compose down          # DB 까지 내릴 때
 | 증상 | 원인 / 해결 |
 |---|---|
 | `docker compose up` 후 앱에서 `Unknown database 'db_puppit'` | 이전에 다른 설정으로 만든 볼륨이 남아있음 → `docker compose down -v` 후 재기동 |
-| `Access denied for user 'root'` | `.env` 의 `DB_ROOT_PASSWORD` 와 `application-secret.properties` 의 `db.password` 불일치 |
+| `Access denied for user 'root'` | `.env` 의 `DB_ROOT_PASSWORD` 와 `application-secret.local.properties` 의 `db.password` 불일치 |
 | `Public Key Retrieval is not allowed` | `db.url` 에 `allowPublicKeyRetrieval=true` 누락 |
 | 빌드 시 한글 깨짐/인코딩 경고 | JDK 파일 인코딩 UTF-8 확인 (`-Dfile.encoding=UTF-8`) |
 | 포트 3306 충돌 | `.env` 의 `DB_PORT` 변경 후 `db.url` 도 동일 포트로 수정 |
