@@ -19,6 +19,7 @@
          application-secret.properties 는 CHANGE_ME 뿐인 템플릿이라 커밋됨)
          우선순위: 시스템 프로퍼티 / 환경변수 > application-secret.local.properties -->
     <context:property-placeholder location="classpath:application-secret.local.properties"
+                                  file-encoding="UTF-8"
                                   system-properties-mode="OVERRIDE"/>
 
     <!-- 1) HikariConfig -->
