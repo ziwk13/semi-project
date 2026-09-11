@@ -30,6 +30,11 @@ public interface UserService {
    Boolean updatePassword(String accountId, String userPassword);
   // 기존 비밀번호 확인
   Boolean passwordCheck(int userId, String userPassword);
+  // 비밀번호 재설정 토큰 발급. accountId가 존재하지 않아도 null을 반환할 뿐 예외를 던지지 않는다
+  // (컨트롤러는 존재 여부와 무관하게 항상 같은 안내 문구를 보여줘 계정 존재 여부 노출을 막는다)
+  String issuePasswordResetToken(String accountId);
+  // 토큰 검증 후 비밀번호 재설정. 토큰이 없거나/만료/이미 사용됐으면 false
+  boolean resetPasswordWithToken(String rawToken, String newPassword);
 
   boolean updateUser(Map<String, Object> map);
   UserDTO getProfileImageKey(Integer userId);
