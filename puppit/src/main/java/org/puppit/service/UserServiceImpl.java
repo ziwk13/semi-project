@@ -89,7 +89,7 @@ public class UserServiceImpl implements UserService {
       int rows = userDAO.softDeleteUser(userId);
       return rows == 1;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("회원 탈퇴 처리 중 오류 (userId={})", userId, e);
       return false;
     }
   }
@@ -127,9 +127,10 @@ public class UserServiceImpl implements UserService {
           encryptedPassword.getBytes(StandardCharsets.UTF_8),
           storedHash.getBytes(StandardCharsets.UTF_8));
       return matched ? auth : null;
-      
+
     } catch (Exception e) {
-      e.printStackTrace();
+      // 비밀번호는 절대 로그에 남기지 않는다 — accountId만 기록
+      log.error("로그인 처리 중 오류 (accountId={})", user.getAccountId(), e);
       return null;
     }
   }
@@ -244,8 +245,8 @@ public class UserServiceImpl implements UserService {
     Map<String, Object> map = new HashMap<>();
     map.put("userId", userId);
     map.put("profileImageKey", profileImageKey);
-    int rows = userDAO.updateProfileImageKey(map);   
-    System.out.println("[updateProfileImageKey] rows=" + rows + ", userId=" + userId + ", key=" + profileImageKey);
+    int rows = userDAO.updateProfileImageKey(map);
+    log.debug("프로필 이미지 키 갱신 rows={}, userId={}, key={}", rows, userId, profileImageKey);
     return rows == 1;
   }
 }
