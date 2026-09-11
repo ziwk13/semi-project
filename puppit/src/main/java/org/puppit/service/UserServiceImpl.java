@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.puppit.model.dto.PasswordResetTokenDTO;
 import org.puppit.model.dto.UserDTO;
@@ -16,29 +17,52 @@ import org.puppit.util.SecureUtil;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RequiredArgsConstructor
+@Slf4j
 @Service
 public class UserServiceImpl implements UserService {
 
   // 재설정 토큰 유효 시간
   private static final long RESET_TOKEN_TTL_MINUTES = 15;
 
+  // 회원가입 형식 검증 — signup.jsp 의 클라이언트측 정규식과 동일한 정책.
+  // JS를 우회해 폼 없이 직접 POST 하는 경우를 막기 위한 서버측 방어선.
+  private static final Pattern ACCOUNT_ID_PATTERN = Pattern.compile("^[a-z0-9]{4,12}$");
+  private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Z])[A-Za-z0-9!@#]{6,10}$");
+  private static final Pattern NICKNAME_PATTERN = Pattern.compile("^[A-Za-z0-9가-힣]{4,8}$");
+  private static final Pattern PHONE_PATTERN = Pattern.compile("^01[0-9]-?\\d{3,4}-?\\d{4}$");
+  private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+
   private final UserDAO userDAO;
   private final PasswordResetTokenDAO passwordResetTokenDAO;
   private final SecureUtil secureUtil;
-  
+
   private boolean emptyCheck(String... fields) {
     for(String field : fields) {
       if(field == null || field.trim().isEmpty()) {
         return true;
       }
     }
-    return false; 
+    return false;
   }
-  
+
+  private boolean isValidSignupFormat(UserDTO user) {
+    return user.getUserName() != null && !user.getUserName().isBlank()
+        && user.getAccountId() != null && ACCOUNT_ID_PATTERN.matcher(user.getAccountId()).matches()
+        && user.getUserPassword() != null && PASSWORD_PATTERN.matcher(user.getUserPassword()).matches()
+        && user.getNickName() != null && NICKNAME_PATTERN.matcher(user.getNickName()).matches()
+        && user.getUserPhone() != null && PHONE_PATTERN.matcher(user.getUserPhone()).matches()
+        && user.getUserEmail() != null && EMAIL_PATTERN.matcher(user.getUserEmail()).matches();
+  }
+
   public boolean signup(UserDTO user) {
     try {
+      // 형식 검증은 비밀번호를 해시로 덮어쓰기 전, 원문 상태에서 먼저 수행한다.
+      if (!isValidSignupFormat(user)) {
+        return false;
+      }
       // salt 생성
       byte[] salt = secureUtil.getSalt();
       // 비밀번호 암호화 하기
@@ -46,12 +70,9 @@ public class UserServiceImpl implements UserService {
       // DB로 보낼 salt, 암호화 된 비밀번호를 UserDTO에 저장
       user.setSalt(salt);
       user.setUserPassword(encryptedPassword);
-      if(emptyCheck(user.getAccountId(), user.getUserPassword(), user.getUserName(), user.getNickName(), user.getUserEmail(), user.getUserPhone())) {
-        return false;
-      }
       return userDAO.userSignUp(user) == 1;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("회원가입 처리 중 오류 (accountId={})", user.getAccountId(), e);
       return false;
     }
   }
