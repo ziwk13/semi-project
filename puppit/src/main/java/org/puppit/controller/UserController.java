@@ -33,9 +33,11 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RequestMapping("/user")
 @RequiredArgsConstructor
+@Slf4j
 @Controller
 public class UserController {
   
@@ -218,26 +220,44 @@ public class UserController {
       return "redirect:/user/login";
     }
   }
-  // 비밀번호 변경 폼
+  // 비밀번호 변경 폼 (1단계: 아이디 입력)
   @GetMapping("/reset-password")
   public String changePassword() {
     return "user/find";
   }
-  // 비밀번호 변경
+  // 비밀번호 재설정 요청 — accountId만으로 토큰을 발급한다.
+  // 계정 존재 여부와 무관하게 항상 같은 안내를 보여줘 계정 존재를 노출하지 않는다(user enumeration 방지).
   @PostMapping("/reset-password")
-  public String changePassword(@RequestParam String accountId,
-                               @RequestParam String userPassword,
-                                RedirectAttributes redirectAttr,
-                                HttpSession session) {
-    if(accountId == null || accountId.isBlank()) {
+  public String requestPasswordReset(@RequestParam String accountId, RedirectAttributes redirectAttr) {
+    if (accountId == null || accountId.isBlank()) {
       redirectAttr.addFlashAttribute("error", "아이디를 입력하세요");
       redirectAttr.addFlashAttribute("activeTab", "resetPw");
       return "redirect:/user/find";
     }
-    boolean ok = userService.updatePassword(accountId, userPassword);
-    if(!ok) {
-      redirectAttr.addFlashAttribute("error", "해당 아이디가 없습니다");
-      redirectAttr.addFlashAttribute("activeTab", "resetPw");
+    String rawToken = userService.issuePasswordResetToken(accountId.trim());
+    if (rawToken != null) {
+      // TODO: 실제 서비스라면 가입 이메일로 링크를 발송한다. 메일 서버가 없는 데모 환경이라 로그로 대체.
+      String resetLink = "/user/reset-password/confirm?token=" + rawToken;
+      log.info("[비밀번호 재설정] accountId={} link={} (15분 후 만료)", accountId.trim(), resetLink);
+    }
+    redirectAttr.addFlashAttribute("msg",
+        "입력하신 아이디로 재설정 링크를 보내드렸습니다. (데모 환경: 서버 로그에서 링크를 확인하세요)");
+    return "redirect:/user/find";
+  }
+  // 비밀번호 재설정 폼 (2단계: 토큰으로 새 비밀번호 입력)
+  @GetMapping("/reset-password/confirm")
+  public String resetPasswordConfirmForm(@RequestParam String token, Model model) {
+    model.addAttribute("token", token);
+    return "user/resetPasswordConfirm";
+  }
+  // 비밀번호 재설정 확정 — 토큰 검증 후에만 비밀번호를 바꾼다.
+  @PostMapping("/reset-password/confirm")
+  public String resetPasswordConfirm(@RequestParam String token,
+                                     @RequestParam String userPassword,
+                                     RedirectAttributes redirectAttr) {
+    boolean ok = userService.resetPasswordWithToken(token, userPassword);
+    if (!ok) {
+      redirectAttr.addFlashAttribute("error", "링크가 만료되었거나 이미 사용되었습니다. 다시 요청해 주세요");
       return "redirect:/user/find";
     }
     redirectAttr.addFlashAttribute("msg", "비밀번호가 변경 되었습니다 다시 로그인 해주세요");
