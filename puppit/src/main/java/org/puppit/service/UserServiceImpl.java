@@ -1,10 +1,16 @@
 package org.puppit.service;
 
+import java.security.SecureRandom;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.puppit.model.dto.PasswordResetTokenDTO;
 import org.puppit.model.dto.UserDTO;
 import org.puppit.model.dto.UserStatusDTO;
+import org.puppit.repository.PasswordResetTokenDAO;
 import org.puppit.repository.UserDAO;
 import org.puppit.util.SecureUtil;
 import org.springframework.stereotype.Service;
@@ -14,8 +20,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Service
 public class UserServiceImpl implements UserService {
-  
+
+  // 재설정 토큰 유효 시간
+  private static final long RESET_TOKEN_TTL_MINUTES = 15;
+
   private final UserDAO userDAO;
+  private final PasswordResetTokenDAO passwordResetTokenDAO;
   private final SecureUtil secureUtil;
   
   private boolean emptyCheck(String... fields) {
@@ -122,6 +132,48 @@ public class UserServiceImpl implements UserService {
     map.put("salt", salt);
     
     return userDAO.updatePasswordByAccountId(map) == 1;
+  }
+  // 비밀번호 재설정 토큰 발급
+  @Override
+  public String issuePasswordResetToken(String accountId) {
+    if (accountId == null || accountId.isBlank()) return null;
+
+    UserDTO user = userDAO.getUserByAccountId(accountId.trim());
+    if (user == null) return null; // 계정 없음 — 호출자는 이 경우에도 동일한 성공 안내를 보여준다
+
+    // 원문 토큰은 반환값으로만 잠깐 존재한다. DB에는 SHA-256 해시만 저장.
+    byte[] raw = new byte[32];
+    new SecureRandom().nextBytes(raw);
+    String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
+    String tokenHash = secureUtil.hashSHA256(rawToken); // 토큰 자체가 고엔트로피 난수라 salt 불필요
+
+    PasswordResetTokenDTO token = PasswordResetTokenDTO.builder()
+        .userId(user.getUserId())
+        .tokenHash(tokenHash)
+        .expiresAt(Timestamp.valueOf(LocalDateTime.now().plusMinutes(RESET_TOKEN_TTL_MINUTES)))
+        .build();
+    passwordResetTokenDAO.insertToken(token);
+
+    return rawToken;
+  }
+  // 토큰 검증 후 비밀번호 재설정
+  @Override
+  public boolean resetPasswordWithToken(String rawToken, String newPassword) {
+    if (rawToken == null || rawToken.isBlank() || newPassword == null || newPassword.isBlank()) {
+      return false;
+    }
+    String tokenHash = secureUtil.hashSHA256(rawToken);
+    PasswordResetTokenDTO token = passwordResetTokenDAO.findValidByHash(tokenHash);
+    if (token == null) return false; // 없음 / 만료 / 이미 사용됨
+
+    UserDTO user = userDAO.getUserByUserId(token.getUserId());
+    if (user == null) return false;
+
+    boolean ok = updatePassword(user.getAccountId(), newPassword);
+    if (ok) {
+      passwordResetTokenDAO.markUsed(token.getTokenId());
+    }
+    return ok;
   }
   @Override
   public Boolean isAccountIdAvailable(String accountId) {
