@@ -21,6 +21,7 @@
     <typeAlias type="org.puppit.model.dto.AlarmReadDTO" alias="AlarmReadDTO"/>
     <typeAlias type="org.puppit.model.dto.UserDTO" alias="UserDTO"/>
     <typeAlias type="org.puppit.model.dto.UserStatusDTO" alias="UserStatusDTO"/>
+    <typeAlias type="org.puppit.model.dto.PasswordResetTokenDTO" alias="PasswordResetTokenDTO"/>
     <typeAlias type="org.puppit.model.dto.PointDTO" alias="PointDTO"/>
     <typeAlias type="org.puppit.model.dto.ProductDTO" alias="ProductDTO"/>
     <typeAlias type="org.puppit.model.dto.ProductStatusDTO" alias="ProductStatusDTO"/>
