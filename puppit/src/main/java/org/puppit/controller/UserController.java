@@ -100,22 +100,36 @@ public class UserController {
   @PostMapping("/delete")
   public String deleteAccount(HttpSession session,
                              @RequestParam("agreement") String agreement,
+                             @RequestParam(value = "userPassword", required = false) String userPassword,
                              @SessionAttribute(name = "sessionMap", required = false) Map<String, Object> sessionMap,
                              RedirectAttributes redirectAttr) {
-    
-    Integer userId = (Integer)sessionMap.get("userId");
 
-    if(sessionMap == null || userId == null) {
+    // 로그인 여부부터 확인 — sessionMap이 null일 수 있으므로 get() 호출보다 먼저 체크
+    if (sessionMap == null || sessionMap.get("userId") == null) {
       redirectAttr.addFlashAttribute("error", "로그인이 필요 합니다");
       return "redirect:/user/login";
     }
-    if(!"회원 탈퇴 하겠습니다 이에 동의 합니다".equals(agreement)) {
+    Integer userId = (Integer) sessionMap.get("userId");
+
+    if (!"회원 탈퇴 하겠습니다 이에 동의 합니다".equals(agreement)) {
       redirectAttr.addFlashAttribute("error", "동의 문구가 일치하지 않습니다");
-      return "rediredct:/userprofile";
+      return "redirect:/user/profile";
     }
+
+    // 비밀번호 로그인 사용자는 탈퇴 직전 현재 비밀번호를 재확인한다.
+    // 카카오 등 소셜 로그인 사용자는 비밀번호가 없으므로 재확인을 건너뛴다(checkPwd와 동일한 정책).
+    String provider = (String) sessionMap.get("provider");
+    boolean isSocial = provider != null && !provider.isEmpty();
+    if (!isSocial) {
+      if (userPassword == null || userPassword.isBlank() || !userService.passwordCheck(userId, userPassword)) {
+        redirectAttr.addFlashAttribute("error", "비밀번호가 일치하지 않습니다");
+        return "redirect:/user/profile";
+      }
+    }
+
     boolean ok = userService.deleteMyAccount(userId);
     if(!ok) {
-      redirectAttr.addFlashAttribute("error", "비밀번호가 일치하지 않거나 삭제에 실패 했습니다");
+      redirectAttr.addFlashAttribute("error", "삭제에 실패 했습니다");
       return "redirect:/user/profile";
     }
     // 세션 초기화
