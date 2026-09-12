@@ -11,7 +11,9 @@
 
 ### 1. DB 준비
 
-**Docker (권장)**
+**아래 A/B 중 하나만 실행한다** (둘 다 하지 않는다).
+
+**A. Docker (권장)**
 
 ```bash
 cp .env.example .env
@@ -21,13 +23,19 @@ docker compose up -d
 최초 기동 시 `puppit/src/main/resources/SCHEMA.sql` → `docker/mysql/seed-dev.sql` 순서로 자동 적용된다.
 접속 정보: `localhost:3306`, DB `db_puppit`, 계정 `root` / `puppit`
 
-**로컬에 설치된 MySQL 사용**
+> `Error response from daemon: ports are not available ... 3306` 이 뜨면 PC에 MySQL이 이미 설치·구동 중이라 3306이 겹친 것이다.
+> `mysql -u root -p ...` 로 우회하지 말고(A/B 혼용 금지), `.env`의 `DB_PORT`를 `3307` 등으로 바꾸고 `docker compose up -d`를 다시 실행한다.
+> (이후 2번 시크릿 파일의 `db.url` 포트도 같은 값으로 맞춘다.)
+
+**B. 로컬에 설치된 MySQL 사용** (A를 했다면 이 블록은 건너뛴다)
 
 ```bash
 mysql -u root -p -e "CREATE DATABASE db_puppit CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 mysql -u root -p db_puppit < puppit/src/main/resources/SCHEMA.sql
 mysql -u root -p db_puppit < docker/mysql/seed-dev.sql
 ```
+
+여기서 쓰는 계정/비밀번호는 **본인 PC에 이미 설치된 MySQL의 root 비밀번호**다(A의 Docker 계정과 다른, 원래부터 본인만 아는 값).
 
 ### 2. 시크릿 파일
 
