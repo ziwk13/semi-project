@@ -42,22 +42,3 @@
    ```
 
    생성된 WAR 를 Tomcat 9 `webapps/` 에 `puppit.war` 로 배치 → `http://localhost:8080/puppit/`
-
-## 원본과 달라진 점
-
-- DB 비밀번호 / Kakao 키 / S3 버킷명을 소스에서 제거하고 `application-secret.properties` 로 외부화
-  (`application-secret.properties` 는 `.gitignore` 처리, `.example` 만 커밋)
-- `root-context.xml` / `servlet-context.xml` 에 `<context:property-placeholder>` 추가
-- 커밋 히스토리 초기화 (원본 브랜치/PR 이력은 위 원본 저장소 참조)
-
-> ⚠️ 원본 저장소가 public 이라 기존 자격증명은 이미 노출된 상태다.
-> RDS 비밀번호 / Kakao 키 / AWS 키 / Iamport 키는 **재발급(rotate)** 후 사용할 것.
-
-## 고도화 TODO
-
-- [ ] 인증/인가를 Spring Security 로 통합, CSRF 방어, IDOR 제거
-- [ ] 비밀번호 해시 BCrypt/Argon2 전환, 비밀번호 재설정 토큰 흐름
-- [ ] 결제 웹훅 + 거래 동시성/보상 트랜잭션, 포인트 원장 테이블
-- [ ] 전역 예외 처리 + 로깅 정리(System.out 제거), 에러 페이지
-- [ ] DB 인덱스/제약 정리, 테스트 골격 + CI
-- [ ] (선택) Spring Boot 3 / Java 17 / Jakarta 마이그레이션
