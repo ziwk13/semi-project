@@ -1,7 +1,9 @@
 # 로컬 실행 가이드
 
-Puppit 을 개발 PC 에서 처음부터 띄우는 절차. Windows 기준이며 macOS/Linux 는 경로 구분자와
-`mvnw.cmd` → `./mvnw` 만 바꿔 읽으면 된다.
+Puppit 을 개발 PC 에서 처음부터 띄우는 절차. **명령은 전부 Windows PowerShell 기준**이다.
+macOS/Linux(bash) 라면 경로 구분자(`\`→`/`), `mvnw.cmd`→`./mvnw` 외에도 `$env:X`→`export X=`,
+`&"경로"`→그냥 `경로` 실행, `Get-Content a | mysql ...`→`mysql ... < a` 로 바꿔 읽어야 한다
+(PowerShell과 bash는 리다이렉션·변수·명령 실행 문법이 서로 다르다).
 
 ## 0. 사전 요구사항
 
@@ -36,16 +38,19 @@ docker compose up -d
 
 ### 1-B. 로컬에 설치된 MySQL 사용
 
-```sql
-CREATE DATABASE db_puppit CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+```powershell
+mysql -u root -p -e "CREATE DATABASE db_puppit CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 ```
 
 그 다음 순서대로 실행:
 
 ```powershell
-mysql -u root -p db_puppit < puppit/src/main/resources/SCHEMA.sql
-mysql -u root -p db_puppit < docker/mysql/seed-dev.sql
+Get-Content puppit\src\main\resources\SCHEMA.sql | mysql -u root -p db_puppit
+Get-Content docker\mysql\seed-dev.sql | mysql -u root -p db_puppit
 ```
+
+(macOS/Linux 등 실제 bash 라면 `mysql -u root -p db_puppit < 파일.sql` 처럼 `<` 리다이렉션을 써도 된다.
+PowerShell은 `<` 입력 리다이렉션을 지원하지 않아 `Get-Content | mysql` 형태로 써야 한다.)
 
 `SCHEMA.sql` 은 앞뒤로 `SET FOREIGN_KEY_CHECKS = 0/1` 을 두어 테이블 순서와 무관하게 통째로 실행된다.
 
@@ -58,8 +63,7 @@ mysql -u root -p db_puppit < docker/mysql/seed-dev.sql
 (이 파일만 `.gitignore` 처리되어 커밋되지 않는다).
 
 ```powershell
-copy puppit\src\main\resources\application-secret.properties ^
-     puppit\src\main\resources\application-secret.local.properties
+copy puppit\src\main\resources\application-secret.properties puppit\src\main\resources\application-secret.local.properties
 ```
 
 생성한 파일에서 최소한 DB 항목만 채우면 로컬 구동이 된다. (Docker 기본값 기준)
@@ -87,12 +91,21 @@ cd puppit
 
 ## 4. Tomcat 배포 및 실행
 
-1. `puppit/target/puppit-1.0.0.war` 를 `TOMCAT_HOME/webapps/puppit.war` 로 복사
-2. Tomcat 기동
-   ```powershell
-   $env:CATALINA_HOME\bin\startup.bat        # 또는 IDE 의 Tomcat 실행 구성
-   ```
-3. 컨텍스트 경로가 `puppit` 이므로 접속 주소는 **http://localhost:8080/puppit/**
+Tomcat 9(포터블 zip)을 아무 곳에나 압축 풀어둔 상태를 가정한다. 설치 자체를 안 해봤다면
+https://tomcat.apache.org/download-90.cgi 에서 "64-bit Windows zip" 받아서 압축만 풀면 된다
+(설치 프로그램이 아니라 그냥 zip이라 관리자 권한 불필요).
+
+```powershell
+$env:CATALINA_HOME = "C:\경로\apache-tomcat-9.0.x"   # 본인이 압축 푼 경로로 수정
+cp puppit\target\puppit-1.0.0.war "$env:CATALINA_HOME\webapps\puppit.war"
+& "$env:CATALINA_HOME\bin\startup.bat"
+```
+
+> `CATALINA_HOME environment variable is not defined correctly` 에러가 나면 위 첫 줄(`$env:CATALINA_HOME = ...`)을
+> 먼저 실행 안 하고 `startup.bat`만 실행한 경우다. 같은 PowerShell 창에서 첫 줄부터 다시 실행한다.
+> (또는 IDE의 Tomcat 실행 구성을 쓴다.)
+
+컨텍스트 경로가 `puppit` 이므로 접속 주소는 **http://localhost:8080/puppit/**
 
 > IntelliJ 라면 Run/Debug Configurations → `Tomcat Server > Local` → Deployment 에
 > `puppit:war exploded` 를 추가하고 Application context 를 `/puppit` 으로 두는 방식이 편하다.
@@ -100,7 +113,8 @@ cd puppit
 ### 종료
 
 ```powershell
-$env:CATALINA_HOME\bin\shutdown.bat
+$env:CATALINA_HOME = "C:\경로\apache-tomcat-9.0.x"   # 새 PowerShell 창이면 다시 지정
+& "$env:CATALINA_HOME\bin\shutdown.bat"
 docker compose down          # DB 까지 내릴 때
 ```
 
