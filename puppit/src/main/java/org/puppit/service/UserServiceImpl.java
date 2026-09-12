@@ -53,10 +53,18 @@ public class UserServiceImpl implements UserService {
   private boolean isValidSignupFormat(UserDTO user) {
     return user.getUserName() != null && !user.getUserName().isBlank()
         && user.getAccountId() != null && ACCOUNT_ID_PATTERN.matcher(user.getAccountId()).matches()
-        && user.getUserPassword() != null && PASSWORD_PATTERN.matcher(user.getUserPassword()).matches()
+        && isValidPasswordFormat(user.getUserPassword())
         && user.getNickName() != null && NICKNAME_PATTERN.matcher(user.getNickName()).matches()
         && user.getUserPhone() != null && PHONE_PATTERN.matcher(user.getUserPhone()).matches()
         && user.getUserEmail() != null && EMAIL_PATTERN.matcher(user.getUserEmail()).matches();
+  }
+
+  // 회원가입뿐 아니라 비밀번호 재설정에도 같은 정책을 적용하기 위해 분리.
+  // (재설정 흐름은 이 검증 없이 곧바로 저장하고 있었음 — 대문자/특수문자 정책이 가입 때만 걸리고
+  //  재설정에는 전혀 적용되지 않던 구멍이었음)
+  @Override
+  public boolean isValidPasswordFormat(String password) {
+    return password != null && PASSWORD_PATTERN.matcher(password).matches();
   }
 
   public boolean signup(UserDTO user) {
@@ -190,6 +198,11 @@ public class UserServiceImpl implements UserService {
   @Override
   public boolean resetPasswordWithToken(String rawToken, String newPassword) {
     if (rawToken == null || rawToken.isBlank() || newPassword == null || newPassword.isBlank()) {
+      return false;
+    }
+    // 가입 때와 같은 비밀번호 정책을 재설정에도 적용한다(회원가입에만 걸리고
+    // 재설정은 그냥 통과되던 구멍 수정).
+    if (!isValidPasswordFormat(newPassword)) {
       return false;
     }
     String tokenHash = secureUtil.hashSHA256(rawToken);
