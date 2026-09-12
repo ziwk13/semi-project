@@ -279,6 +279,16 @@
     }
     document.getElementById("deleteForm").submit();
   });
+
+  // 서버 플래시 메시지(비밀번호 불일치, 동의문구 불일치, 탈퇴 실패 등) 안내.
+  // 지금까지는 이 화면에서 ${error}/${msg} 를 아예 안 띄워서, 탈퇴가 조용히 실패해도
+  // 사용자는 아무 피드백을 못 받았음(탈퇴가 안 됐는데 왜 안 됐는지 알 길이 없었음).
+  (function showFlashMessage(){
+    const error = "${error}";
+    const msg = "${msg}";
+    if (error && error.trim() !== "") setTimeout(() => alert(error), 50);
+    else if (msg && msg.trim() !== "") setTimeout(() => alert(msg), 50);
+  })();
 </script>
 </body>
 </html>
