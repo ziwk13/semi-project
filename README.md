@@ -6,6 +6,9 @@
 
 ## 로컬 실행
 
+아래 명령은 모두 **저장소 루트(`git clone` 직후 생긴 폴더)** 에서 실행한다.
+(`.env.example`, `docker-compose.yml`, `puppit/` 이 한 폴더 안에 같이 보여야 정상)
+
 ### 1. DB 준비
 
 **Docker (권장)**
