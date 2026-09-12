@@ -81,15 +81,15 @@
     <form id="form-reset-confirm" action="${contextPath}/user/reset-password/confirm" method="post" class="find-form" novalidate>
       <input type="hidden" name="token" value="${token}">
       <div class="form-group">
-        <input type="password" name="userPassword" id="userPassword" placeholder="새 비밀번호" minlength="8" required autocomplete="new-password">
+        <input type="password" name="userPassword" id="userPassword" placeholder="새 비밀번호 (대문자 1개 포함, 영문/숫자/!@#만, 6~10자)" minlength="6" maxlength="10" pattern="(?=.*[A-Z])[A-Za-z0-9!@#]{6,10}" required autocomplete="new-password">
       </div>
       <div class="form-group">
-        <input type="password" name="confirmPassword" id="confirmPassword" placeholder="새 비밀번호 확인" minlength="8" required autocomplete="new-password">
+        <input type="password" name="confirmPassword" id="confirmPassword" placeholder="새 비밀번호 확인" minlength="6" maxlength="10" required autocomplete="new-password">
       </div>
       <button type="submit" class="btn-primary">비밀번호 변경</button>
     </form>
 
-    <div class="msg" id="resultMsg">${msg}</div>
+    <div class="msg" id="resultMsg">${not empty error ? error : msg}</div>
   </div>
 </main>
 
@@ -117,7 +117,9 @@
 })();
 
 (function showMsg(){
+  const error = "${error}";
   const msg = "${msg}";
-  if (msg && msg.trim() !== "") setTimeout(()=>alert(msg), 50);
+  if (error && error.trim() !== "") setTimeout(()=>alert(error), 50);
+  else if (msg && msg.trim() !== "") setTimeout(()=>alert(msg), 50);
 })();
 </script>
