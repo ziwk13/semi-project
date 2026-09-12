@@ -115,15 +115,14 @@ public class KakaoLoginServiceImpl implements KakaoLoginService {
       return found;
     }
 
-    // 2) 이메일 기반 연동
+    // 2) 이메일 기반 자동 연동은 하지 않는다 — KakaoAccountLinkException 참고.
+    //    (로컬 회원가입이 이메일 소유권을 검증하지 않는 상태에서 자동 연동을 허용하면
+    //     계정 선점 공격에 노출된다. 대신 명시적으로 거부하고 기존 계정으로 로그인하도록 안내한다.)
     if (p.email != null && !p.email.isEmpty()) {
       UserDTO byEmail = userDAO.findByEmail(p.email);
       if (byEmail != null) {
-        byEmail.setProvider("kakao");
-        byEmail.setProviderId(p.id);
-        byEmail.setProfileImageKey(p.profileImage);
-        userDAO.linkProvider(byEmail);
-        return byEmail;
+        throw new KakaoAccountLinkException(
+            "이미 가입된 이메일입니다. 아이디/비밀번호로 로그인 후 이용해주세요.");
       }
     }
 

@@ -1,44 +1,80 @@
 # Puppit (semi-project)
 
-반려동물 용품 중고거래 웹 애플리케이션. 학원 팀 프로젝트
-[`choimeeyoung94/semi-team-project`](https://github.com/choimeeyoung94/semi-team-project)
-를 베이스로, 개인 고도화를 위해 히스토리를 정리하고 새로 시작한 저장소.
+반려동물 용품 중고거래 웹 애플리케이션 (Spring MVC 5.3 non-Boot + JSP, MyBatis, MySQL 8, Tomcat 9).
 
-## 기술 스택
-
-- Java 11 (빌드 JDK 17 사용 가능), Spring MVC 5.3 (non-Boot, XML 설정), WAR / Tomcat 9
-- MyBatis 3.5 + mybatis-spring, HikariCP, MySQL 8
-- JSP + JSTL
-- WebSocket + STOMP + SockJS (실시간 채팅/알림)
-- AWS S3 (이미지), Kakao OAuth (소셜 로그인), Iamport/PortOne (포인트 결제)
+> MySQL만 Docker로 실행하고 앱은 로컬 JDK 11 / Tomcat 9에서 실행합니다. Compose의 계정과 비밀번호는 개발용이며 DB는 루프백 주소에만 공개합니다.
 
 ## 로컬 실행
 
-1. **설정 파일 생성**
+아래 명령은 모두 **저장소 루트(`git clone` 직후 생긴 폴더)** 에서 실행한다.
+(`.env.example`, `docker-compose.yml`, `puppit/` 이 한 폴더 안에 같이 보여야 정상)
 
-   ```bash
-   cp puppit/src/main/resources/application-secret.properties.example \
-      puppit/src/main/resources/application-secret.properties
-   ```
+명령은 **Windows PowerShell 기준**이다. macOS/Linux(bash)라면 `.cmd` 확장자를 빼고 `.\`를 `./`로 바꿔 읽으면 된다
+(PowerShell은 bash의 줄바꿈용 `\`, 명령 연결용 `&&`, 입력 리다이렉션 `<` 를 지원하지 않아서 명령 형태가 다르다).
 
-   생성한 파일에 실제 값 입력:
+### 1. DB 준비
 
-   | 키 | 설명 |
-   |---|---|
-   | `db.url` / `db.username` / `db.password` | MySQL 접속 정보 |
-   | `kakao.rest.api.key` / `kakao.redirect.uri` | Kakao Developers 앱 |
-   | `iamport.api.key` / `iamport.api.secret` | PortOne(구 아임포트) |
-   | `aws.s3.bucket` | S3 버킷 이름 |
+**아래 A/B 중 하나만 실행한다** (둘 다 하지 않는다).
 
-   AWS 자격증명은 환경변수로 주입: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
+**A. Docker (권장)**
 
-2. **DB 스키마**: `puppit/src/main/resources/SCHEMA.sql` 참고 (외래키 순서상 그대로 실행은 안 되니 마스터 테이블부터 생성)
+```powershell
+cp .env.example .env
+docker compose up -d
+```
 
-3. **빌드 / 배포**
+최초 기동 시 `puppit/src/main/resources/SCHEMA.sql` → `docker/mysql/seed-dev.sql` 순서로 자동 적용된다.
+접속 정보: `localhost:3306`, DB `db_puppit`, 계정 `root` / `puppit`
 
-   ```bash
-   cd puppit
-   mvn clean package        # target/puppit-1.0.0.war
-   ```
+> `Error response from daemon: ports are not available ... 3306` 이 뜨면 PC에 MySQL이 이미 설치·구동 중이라 3306이 겹친 것이다.
+> `mysql -u root -p ...` 로 우회하지 말고(A/B 혼용 금지), `.env`의 `DB_PORT`를 `3307` 등으로 바꾸고 `docker compose up -d`를 다시 실행한다.
+> (이후 2번 시크릿 파일의 `db.url` 포트도 같은 값으로 맞춘다.)
 
-   생성된 WAR 를 Tomcat 9 `webapps/` 에 `puppit.war` 로 배치 → `http://localhost:8080/puppit/`
+**B. 로컬에 설치된 MySQL 사용** (A를 했다면 이 블록은 건너뛴다)
+
+```powershell
+mysql -u root -p -e "CREATE DATABASE db_puppit CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+Get-Content puppit\src\main\resources\SCHEMA.sql | mysql -u root -p db_puppit
+Get-Content docker\mysql\seed-dev.sql | mysql -u root -p db_puppit
+```
+
+여기서 쓰는 계정/비밀번호는 **본인 PC에 이미 설치된 MySQL의 root 비밀번호**다(A의 Docker 계정과 다른, 원래부터 본인만 아는 값).
+
+### 2. 시크릿 파일
+
+```powershell
+cp puppit\src\main\resources\application-secret.properties puppit\src\main\resources\application-secret.local.properties
+```
+
+최소 `db.*` 만 채우면 된다 (Docker 기본값: `root` / `puppit` / `db_puppit`).
+Kakao/S3/Iamport 키가 없어도 앱은 뜬다 — 해당 기능만 동작하지 않는다.
+
+### 3. 빌드
+
+```powershell
+cd puppit
+.\mvnw.cmd clean package
+```
+
+→ `target\puppit-1.0.0.war`
+
+### 4. Tomcat 배포
+
+```powershell
+$env:CATALINA_HOME = "C:\경로\apache-tomcat-9.0.x"   # 본인 Tomcat 설치 경로로 수정
+cp target\puppit-1.0.0.war "$env:CATALINA_HOME\webapps\puppit.war"
+& "$env:CATALINA_HOME\bin\startup.bat"
+```
+
+> `CATALINA_HOME environment variable is not defined correctly` 에러가 나면 위 첫 줄을 안 실행하고
+> `startup.bat`만 실행한 경우다. 같은 PowerShell 창에서 첫 줄부터 다시 실행한다(창을 새로 열면 매번 다시 설정해야 함).
+
+→ **http://localhost:8080/puppit/**
+
+### 종료
+
+```powershell
+$env:CATALINA_HOME = "C:\경로\apache-tomcat-9.0.x"   # 새 PowerShell 창이면 다시 지정
+& "$env:CATALINA_HOME\bin\shutdown.bat"
+docker compose down             # DB까지 내릴 때
+```

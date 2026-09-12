@@ -10,12 +10,16 @@
   
   <!-- properties : ${} (프로퍼티 대치 문법)을 이용해 가져다 사용할 수 있습니다. -->
   <properties>
+    <!-- 빌드가 OS 기본 인코딩(한국어 Windows=MS949)에 좌우되지 않도록 고정 -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <java.version>11</java.version>
     <spring.version>5.3.39</spring.version>
     <aspectj.version>1.9.22.1</aspectj.version>
     <slf4j.version>1.7.36</slf4j.version>
     <logback.version>1.2.13</logback.version>
     <junit.version>4.13.2</junit.version>
+    <mockito.version>4.11.0</mockito.version>
   </properties>
   
   <!-- dependencies : 디펜던시를 모아둡니다. -->
@@ -138,6 +142,12 @@
       <groupId>org.springframework</groupId>
       <artifactId>spring-test</artifactId>
       <version>${spring.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
     

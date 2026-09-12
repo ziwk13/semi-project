@@ -22,7 +22,8 @@
 
    <!-- 컨트롤러 등 웹 컨텍스트 빈의 @Value(${...}) 해석용.
         BeanFactoryPostProcessor 는 컨텍스트 단위로 동작하므로 root-context 와 별개로 필요하다. -->
-   <context:property-placeholder location="classpath:application-secret.properties"
+   <context:property-placeholder location="classpath:application-secret.local.properties"
+                                 file-encoding="UTF-8"
                                  system-properties-mode="OVERRIDE"/>
 
   <mvc:interceptors>

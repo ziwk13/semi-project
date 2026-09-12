@@ -148,9 +148,12 @@
   <!-- 수정: JS로 profileForm submit -->
   <button id="btn-submit" type="button" class="button">수정</button>
 
-  <!-- 회원 탈퇴: 별도의 POST 폼 (문구 입력만) -->
+  <!-- 회원 탈퇴: 별도의 POST 폼 (문구 입력 + 비밀번호 재확인) -->
   <form id="deleteForm" action="${contextPath}/user/delete" method="post" style="display:inline;">
     <input type="hidden" name="agreement" id="agreementHidden">
+    <c:if test="${empty sessionScope.sessionMap.provider}">
+      <input type="hidden" name="userPassword" id="deletePasswordHidden">
+    </c:if>
     <c:if test="${not empty _csrf}">
       <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
     </c:if>
@@ -158,9 +161,15 @@
   </form>
 </div>
 
-<!-- 탈퇴 확인 박스 (문구 입력) -->
+<!-- 탈퇴 확인 박스 (문구 입력 + 비밀번호 재확인) -->
 <div id="dangerBox" class="danger-box" aria-hidden="true">
   <h3 class="danger-title">탈퇴 전 최종 확인</h3>
+  <c:if test="${empty sessionScope.sessionMap.provider}">
+    <p class="danger-desc">본인 확인을 위해 현재 비밀번호를 입력해주세요.</p>
+    <div class="danger-row">
+      <input type="password" id="deletePasswordInput" placeholder="현재 비밀번호" autocomplete="current-password">
+    </div>
+  </c:if>
   <p class="danger-desc">아래 문구를 정확히 입력해야 탈퇴가 진행됩니다.</p>
   <p class="danger-desc"><strong>회원 탈퇴 하겠습니다 이에 동의 합니다</strong></p>
   <div class="danger-row">
@@ -246,8 +255,16 @@
     }
   });
 
-  // 최종 탈퇴 진행
+  // 최종 탈퇴 진행 (비밀번호 로그인 사용자는 현재 비밀번호도 함께 확인)
+  const deletePasswordInput = document.getElementById("deletePasswordInput");
+  const deletePasswordHidden = document.getElementById("deletePasswordHidden");
+
   document.getElementById("btn-confirm-delete").addEventListener("click", function() {
+    if (deletePasswordInput && !deletePasswordInput.value) {
+      alert("현재 비밀번호를 입력해주세요.");
+      deletePasswordInput.focus();
+      return;
+    }
     const val = agreementInput.value.trim();
     if (val !== PHRASE) {
       alert("동의 문구가 정확히 일치해야 합니다.");
@@ -257,8 +274,21 @@
     if (!confirm("정말 탈퇴하시겠습니까? 복구할 수 없습니다.")) return;
 
     agreementHidden.value = val;
+    if (deletePasswordHidden && deletePasswordInput) {
+      deletePasswordHidden.value = deletePasswordInput.value;
+    }
     document.getElementById("deleteForm").submit();
   });
+
+  // 서버 플래시 메시지(비밀번호 불일치, 동의문구 불일치, 탈퇴 실패 등) 안내.
+  // 지금까지는 이 화면에서 ${error}/${msg} 를 아예 안 띄워서, 탈퇴가 조용히 실패해도
+  // 사용자는 아무 피드백을 못 받았음(탈퇴가 안 됐는데 왜 안 됐는지 알 길이 없었음).
+  (function showFlashMessage(){
+    const error = "${error}";
+    const msg = "${msg}";
+    if (error && error.trim() !== "") setTimeout(() => alert(error), 50);
+    else if (msg && msg.trim() !== "") setTimeout(() => alert(msg), 50);
+  })();
 </script>
 </body>
 </html>

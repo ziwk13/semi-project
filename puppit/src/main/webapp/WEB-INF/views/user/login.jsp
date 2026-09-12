@@ -120,6 +120,7 @@
           <c:param name="redirect_uri" value="${redirectUri}"/>
           <c:param name="response_type" value="code"/>
           <c:param name="scope" value="profile_nickname,profile_image"/>
+          <c:param name="state" value="${kakaoState}"/>
       </c:url>
       <a href="${kakaoAuth}">
         <img src="${contextPath}/resources/image/kakao-login-medium-wide.png" alt="카카오로그인" style="display: block; margin: 0 auto;"/>

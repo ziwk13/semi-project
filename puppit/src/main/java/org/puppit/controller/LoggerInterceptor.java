@@ -22,6 +22,7 @@ public class LoggerInterceptor implements HandlerInterceptor {
                     || path.equals("/user/find")
                     || path.equals("/user/check")
                     || path.equals("/user/reset-password")
+                    || path.equals("/user/reset-password/confirm")
                     || path.equals("/auth");
     
     if(isPublic) return true;

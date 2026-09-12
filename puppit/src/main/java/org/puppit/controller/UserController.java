@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
@@ -33,9 +34,11 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RequestMapping("/user")
 @RequiredArgsConstructor
+@Slf4j
 @Controller
 public class UserController {
   
@@ -98,22 +101,36 @@ public class UserController {
   @PostMapping("/delete")
   public String deleteAccount(HttpSession session,
                              @RequestParam("agreement") String agreement,
+                             @RequestParam(value = "userPassword", required = false) String userPassword,
                              @SessionAttribute(name = "sessionMap", required = false) Map<String, Object> sessionMap,
                              RedirectAttributes redirectAttr) {
-    
-    Integer userId = (Integer)sessionMap.get("userId");
 
-    if(sessionMap == null || userId == null) {
+    // 로그인 여부부터 확인 — sessionMap이 null일 수 있으므로 get() 호출보다 먼저 체크
+    if (sessionMap == null || sessionMap.get("userId") == null) {
       redirectAttr.addFlashAttribute("error", "로그인이 필요 합니다");
       return "redirect:/user/login";
     }
-    if(!"회원 탈퇴 하겠습니다 이에 동의 합니다".equals(agreement)) {
+    Integer userId = (Integer) sessionMap.get("userId");
+
+    if (!"회원 탈퇴 하겠습니다 이에 동의 합니다".equals(agreement)) {
       redirectAttr.addFlashAttribute("error", "동의 문구가 일치하지 않습니다");
-      return "rediredct:/userprofile";
+      return "redirect:/user/profile";
     }
+
+    // 비밀번호 로그인 사용자는 탈퇴 직전 현재 비밀번호를 재확인한다.
+    // 카카오 등 소셜 로그인 사용자는 비밀번호가 없으므로 재확인을 건너뛴다(checkPwd와 동일한 정책).
+    String provider = (String) sessionMap.get("provider");
+    boolean isSocial = provider != null && !provider.isEmpty();
+    if (!isSocial) {
+      if (userPassword == null || userPassword.isBlank() || !userService.passwordCheck(userId, userPassword)) {
+        redirectAttr.addFlashAttribute("error", "비밀번호가 일치하지 않습니다");
+        return "redirect:/user/profile";
+      }
+    }
+
     boolean ok = userService.deleteMyAccount(userId);
     if(!ok) {
-      redirectAttr.addFlashAttribute("error", "비밀번호가 일치하지 않거나 삭제에 실패 했습니다");
+      redirectAttr.addFlashAttribute("error", "삭제에 실패 했습니다");
       return "redirect:/user/profile";
     }
     // 세션 초기화
@@ -142,9 +159,14 @@ public class UserController {
   
   // 로그인 폼 보여주기
   @GetMapping("/login")
-  public String loginForm(Model model) {
+  public String loginForm(Model model, HttpSession session) {
     model.addAttribute("kakaoApiKey", kakaoApiKey);
     model.addAttribute("redirectUri", kakaoRedirectUri);
+    // 카카오 OAuth state — 콜백에서 검증해 로그인 CSRF(공격자 계정으로 피해자 세션이
+    // 로그인되도록 유도하는 공격)를 막는다. 1회용이라 콜백 처리 후 세션에서 제거한다.
+    String kakaoState = UUID.randomUUID().toString();
+    session.setAttribute("kakaoOAuthState", kakaoState);
+    model.addAttribute("kakaoState", kakaoState);
     return "user/login";
   }
   // 로그인
@@ -190,7 +212,7 @@ public class UserController {
       }
       return "redirect:/";
   } catch (Exception e) {
-     e.printStackTrace();
+     log.error("로그인 처리 중 오류 (accountId={})", user.getAccountId(), e);
      redirectAttr.addFlashAttribute("error", "로그인 중 오류가 발생했습니다.");
      return "redirect:/user/login";
   }
@@ -218,26 +240,57 @@ public class UserController {
       return "redirect:/user/login";
     }
   }
-  // 비밀번호 변경 폼
+  // 비밀번호 변경 폼 (1단계: 아이디 입력)
   @GetMapping("/reset-password")
   public String changePassword() {
     return "user/find";
   }
-  // 비밀번호 변경
+  // 비밀번호 재설정 요청 — accountId만으로 토큰을 발급한다.
+  // 원래는 계정 존재 여부와 무관하게 항상 같은 안내만 보여줘 계정 존재를 노출하지 않아야 한다
+  // (user enumeration 방지). 다만 메일 서버가 없는 데모/포트폴리오 환경이라 아래처럼
+  // 발급된 링크를 화면에도 보여주는 타협을 했고, 그 경우에만 "이메일이 없으면" 안 보이므로
+  // 계정 존재 여부가 미세하게 드러난다 — 실서비스 배포 전 반드시 이 노출 부분을 제거해야 한다.
   @PostMapping("/reset-password")
-  public String changePassword(@RequestParam String accountId,
-                               @RequestParam String userPassword,
-                                RedirectAttributes redirectAttr,
-                                HttpSession session) {
-    if(accountId == null || accountId.isBlank()) {
+  public String requestPasswordReset(@RequestParam String accountId, HttpServletRequest request,
+                                     RedirectAttributes redirectAttr) {
+    if (accountId == null || accountId.isBlank()) {
       redirectAttr.addFlashAttribute("error", "아이디를 입력하세요");
       redirectAttr.addFlashAttribute("activeTab", "resetPw");
       return "redirect:/user/find";
     }
-    boolean ok = userService.updatePassword(accountId, userPassword);
-    if(!ok) {
-      redirectAttr.addFlashAttribute("error", "해당 아이디가 없습니다");
-      redirectAttr.addFlashAttribute("activeTab", "resetPw");
+    String rawToken = userService.issuePasswordResetToken(accountId.trim());
+    if (rawToken != null) {
+      // TODO: 실제 서비스라면 가입 이메일로만 링크를 발송하고, 화면에는 절대 노출하지 않는다.
+      String resetPath = request.getContextPath() + "/user/reset-password/confirm?token=" + rawToken;
+      String resetLink = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + resetPath;
+      log.info("[비밀번호 재설정] accountId={} link={} (15분 후 만료)", accountId.trim(), resetLink);
+      redirectAttr.addFlashAttribute("msg",
+          "재설정 링크가 발급되었습니다 (데모 환경이라 이메일 대신 화면에 표시): " + resetLink);
+    } else {
+      redirectAttr.addFlashAttribute("msg",
+          "입력하신 아이디로 재설정 링크를 보내드렸습니다.");
+    }
+    return "redirect:/user/find";
+  }
+  // 비밀번호 재설정 폼 (2단계: 토큰으로 새 비밀번호 입력)
+  @GetMapping("/reset-password/confirm")
+  public String resetPasswordConfirmForm(@RequestParam String token, Model model) {
+    model.addAttribute("token", token);
+    return "user/resetPasswordConfirm";
+  }
+  // 비밀번호 재설정 확정 — 토큰 검증 후에만 비밀번호를 바꾼다.
+  @PostMapping("/reset-password/confirm")
+  public String resetPasswordConfirm(@RequestParam String token,
+                                     @RequestParam String userPassword,
+                                     RedirectAttributes redirectAttr) {
+    // 토큰 문제와 비밀번호 형식 문제를 구분해서 안내한다(둘 다 뭉뚱그리면 사용자가 뭘 고쳐야 할지 모름).
+    if (!userService.isValidPasswordFormat(userPassword)) {
+      redirectAttr.addFlashAttribute("error", "비밀번호는 대문자 1개 포함, 영문/숫자/!@#만 사용해 6~10자로 입력해주세요");
+      return "redirect:/user/reset-password/confirm?token=" + token;
+    }
+    boolean ok = userService.resetPasswordWithToken(token, userPassword);
+    if (!ok) {
+      redirectAttr.addFlashAttribute("error", "링크가 만료되었거나 이미 사용되었습니다. 다시 요청해 주세요");
       return "redirect:/user/find";
     }
     redirectAttr.addFlashAttribute("msg", "비밀번호가 변경 되었습니다 다시 로그인 해주세요");
@@ -286,7 +339,7 @@ public class UserController {
       }
       return "redirect:/user/profile";
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("비밀번호 재확인 처리 중 오류", e);
       redirectAttr.addFlashAttribute("error", "오류가 발생 했습니다");
       return "redirect:/user/mypage";
     }
