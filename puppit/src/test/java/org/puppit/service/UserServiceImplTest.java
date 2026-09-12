@@ -167,10 +167,10 @@ public class UserServiceImplTest {
     when(passwordResetTokenDAO.findValidByHash("hashed-token")).thenReturn(token);
     when(userDAO.getUserByUserId(1)).thenReturn(UserDTO.builder().userId(1).accountId("tester01").build());
     when(secureUtil.getSalt()).thenReturn(new byte[16]);
-    when(secureUtil.hashPBKDF2(eq("NewPassw0rd!"), any(byte[].class))).thenReturn("newHash");
+    when(secureUtil.hashPBKDF2(eq("NewPass1!"), any(byte[].class))).thenReturn("newHash");
     when(userDAO.updatePasswordByAccountId(anyMap())).thenReturn(1);
 
-    boolean result = userService.resetPasswordWithToken("raw-token", "NewPassw0rd!");
+    boolean result = userService.resetPasswordWithToken("raw-token", "NewPass1!");
 
     assertTrue(result);
     verify(passwordResetTokenDAO).markUsed(10);
@@ -181,10 +181,20 @@ public class UserServiceImplTest {
     when(secureUtil.hashSHA256("bad-token")).thenReturn("hashed-bad");
     when(passwordResetTokenDAO.findValidByHash("hashed-bad")).thenReturn(null);
 
-    boolean result = userService.resetPasswordWithToken("bad-token", "NewPassw0rd!");
+    boolean result = userService.resetPasswordWithToken("bad-token", "NewPass1!");
 
     assertFalse(result);
     verify(passwordResetTokenDAO, never()).markUsed(anyInt());
+    verify(userDAO, never()).updatePasswordByAccountId(anyMap());
+  }
+
+  @Test
+  public void resetPasswordWithToken_새비밀번호가정책을위반하면_토큰조회도안하고즉시실패한다() {
+    // 회원가입에만 걸리고 재설정에는 전혀 적용되지 않던 구멍(대문자/특수문자 정책 우회) 회귀 방지용.
+    boolean result = userService.resetPasswordWithToken("raw-token", "weak"); // 대문자/특수문자 없음, 6자 미만
+
+    assertFalse(result);
+    verifyNoInteractions(passwordResetTokenDAO);
     verify(userDAO, never()).updatePasswordByAccountId(anyMap());
   }
 
