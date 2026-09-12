@@ -246,9 +246,13 @@ public class UserController {
     return "user/find";
   }
   // 비밀번호 재설정 요청 — accountId만으로 토큰을 발급한다.
-  // 계정 존재 여부와 무관하게 항상 같은 안내를 보여줘 계정 존재를 노출하지 않는다(user enumeration 방지).
+  // 원래는 계정 존재 여부와 무관하게 항상 같은 안내만 보여줘 계정 존재를 노출하지 않아야 한다
+  // (user enumeration 방지). 다만 메일 서버가 없는 데모/포트폴리오 환경이라 아래처럼
+  // 발급된 링크를 화면에도 보여주는 타협을 했고, 그 경우에만 "이메일이 없으면" 안 보이므로
+  // 계정 존재 여부가 미세하게 드러난다 — 실서비스 배포 전 반드시 이 노출 부분을 제거해야 한다.
   @PostMapping("/reset-password")
-  public String requestPasswordReset(@RequestParam String accountId, RedirectAttributes redirectAttr) {
+  public String requestPasswordReset(@RequestParam String accountId, HttpServletRequest request,
+                                     RedirectAttributes redirectAttr) {
     if (accountId == null || accountId.isBlank()) {
       redirectAttr.addFlashAttribute("error", "아이디를 입력하세요");
       redirectAttr.addFlashAttribute("activeTab", "resetPw");
@@ -256,12 +260,16 @@ public class UserController {
     }
     String rawToken = userService.issuePasswordResetToken(accountId.trim());
     if (rawToken != null) {
-      // TODO: 실제 서비스라면 가입 이메일로 링크를 발송한다. 메일 서버가 없는 데모 환경이라 로그로 대체.
-      String resetLink = "/user/reset-password/confirm?token=" + rawToken;
+      // TODO: 실제 서비스라면 가입 이메일로만 링크를 발송하고, 화면에는 절대 노출하지 않는다.
+      String resetPath = request.getContextPath() + "/user/reset-password/confirm?token=" + rawToken;
+      String resetLink = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + resetPath;
       log.info("[비밀번호 재설정] accountId={} link={} (15분 후 만료)", accountId.trim(), resetLink);
+      redirectAttr.addFlashAttribute("msg",
+          "재설정 링크가 발급되었습니다 (데모 환경이라 이메일 대신 화면에 표시): " + resetLink);
+    } else {
+      redirectAttr.addFlashAttribute("msg",
+          "입력하신 아이디로 재설정 링크를 보내드렸습니다.");
     }
-    redirectAttr.addFlashAttribute("msg",
-        "입력하신 아이디로 재설정 링크를 보내드렸습니다. (데모 환경: 서버 로그에서 링크를 확인하세요)");
     return "redirect:/user/find";
   }
   // 비밀번호 재설정 폼 (2단계: 토큰으로 새 비밀번호 입력)
