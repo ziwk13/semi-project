@@ -9,13 +9,16 @@
 아래 명령은 모두 **저장소 루트(`git clone` 직후 생긴 폴더)** 에서 실행한다.
 (`.env.example`, `docker-compose.yml`, `puppit/` 이 한 폴더 안에 같이 보여야 정상)
 
+명령은 **Windows PowerShell 기준**이다. macOS/Linux(bash)라면 `.cmd` 확장자를 빼고 `.\`를 `./`로 바꿔 읽으면 된다
+(PowerShell은 bash의 줄바꿈용 `\`, 명령 연결용 `&&`, 입력 리다이렉션 `<` 를 지원하지 않아서 명령 형태가 다르다).
+
 ### 1. DB 준비
 
 **아래 A/B 중 하나만 실행한다** (둘 다 하지 않는다).
 
 **A. Docker (권장)**
 
-```bash
+```powershell
 cp .env.example .env
 docker compose up -d
 ```
@@ -29,19 +32,18 @@ docker compose up -d
 
 **B. 로컬에 설치된 MySQL 사용** (A를 했다면 이 블록은 건너뛴다)
 
-```bash
+```powershell
 mysql -u root -p -e "CREATE DATABASE db_puppit CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-mysql -u root -p db_puppit < puppit/src/main/resources/SCHEMA.sql
-mysql -u root -p db_puppit < docker/mysql/seed-dev.sql
+Get-Content puppit\src\main\resources\SCHEMA.sql | mysql -u root -p db_puppit
+Get-Content docker\mysql\seed-dev.sql | mysql -u root -p db_puppit
 ```
 
 여기서 쓰는 계정/비밀번호는 **본인 PC에 이미 설치된 MySQL의 root 비밀번호**다(A의 Docker 계정과 다른, 원래부터 본인만 아는 값).
 
 ### 2. 시크릿 파일
 
-```bash
-cp puppit/src/main/resources/application-secret.properties \
-   puppit/src/main/resources/application-secret.local.properties
+```powershell
+cp puppit\src\main\resources\application-secret.properties puppit\src\main\resources\application-secret.local.properties
 ```
 
 최소 `db.*` 만 채우면 된다 (Docker 기본값: `root` / `puppit` / `db_puppit`).
@@ -49,24 +51,26 @@ Kakao/S3/Iamport 키가 없어도 앱은 뜬다 — 해당 기능만 동작하�
 
 ### 3. 빌드
 
-```bash
-cd puppit && ./mvnw clean package
+```powershell
+cd puppit
+.\mvnw.cmd clean package
 ```
 
-→ `target/puppit-1.0.0.war`
+→ `target\puppit-1.0.0.war`
 
 ### 4. Tomcat 배포
 
-```bash
-cp target/puppit-1.0.0.war <TOMCAT_HOME>/webapps/puppit.war
-<TOMCAT_HOME>/bin/startup.sh   # Windows: startup.bat
+```powershell
+$TomcatHome = "C:\경로\apache-tomcat-9.0.x"   # 본인 Tomcat 설치 경로로 수정
+cp target\puppit-1.0.0.war "$TomcatHome\webapps\puppit.war"
+& "$TomcatHome\bin\startup.bat"
 ```
 
 → **http://localhost:8080/puppit/**
 
 ### 종료
 
-```bash
-<TOMCAT_HOME>/bin/shutdown.sh   # Windows: shutdown.bat
+```powershell
+& "$TomcatHome\bin\shutdown.bat"
 docker compose down             # DB까지 내릴 때
 ```
