@@ -283,6 +283,11 @@ public class UserController {
   public String resetPasswordConfirm(@RequestParam String token,
                                      @RequestParam String userPassword,
                                      RedirectAttributes redirectAttr) {
+    // 토큰 문제와 비밀번호 형식 문제를 구분해서 안내한다(둘 다 뭉뚱그리면 사용자가 뭘 고쳐야 할지 모름).
+    if (!userService.isValidPasswordFormat(userPassword)) {
+      redirectAttr.addFlashAttribute("error", "비밀번호는 대문자 1개 포함, 영문/숫자/!@#만 사용해 6~10자로 입력해주세요");
+      return "redirect:/user/reset-password/confirm?token=" + token;
+    }
     boolean ok = userService.resetPasswordWithToken(token, userPassword);
     if (!ok) {
       redirectAttr.addFlashAttribute("error", "링크가 만료되었거나 이미 사용되었습니다. 다시 요청해 주세요");
