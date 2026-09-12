@@ -61,16 +61,20 @@ cd puppit
 ### 4. Tomcat 배포
 
 ```powershell
-$TomcatHome = "C:\경로\apache-tomcat-9.0.x"   # 본인 Tomcat 설치 경로로 수정
-cp target\puppit-1.0.0.war "$TomcatHome\webapps\puppit.war"
-& "$TomcatHome\bin\startup.bat"
+$env:CATALINA_HOME = "C:\경로\apache-tomcat-9.0.x"   # 본인 Tomcat 설치 경로로 수정
+cp target\puppit-1.0.0.war "$env:CATALINA_HOME\webapps\puppit.war"
+& "$env:CATALINA_HOME\bin\startup.bat"
 ```
+
+> `CATALINA_HOME environment variable is not defined correctly` 에러가 나면 위 첫 줄을 안 실행하고
+> `startup.bat`만 실행한 경우다. 같은 PowerShell 창에서 첫 줄부터 다시 실행한다(창을 새로 열면 매번 다시 설정해야 함).
 
 → **http://localhost:8080/puppit/**
 
 ### 종료
 
 ```powershell
-& "$TomcatHome\bin\shutdown.bat"
+$env:CATALINA_HOME = "C:\경로\apache-tomcat-9.0.x"   # 새 PowerShell 창이면 다시 지정
+& "$env:CATALINA_HOME\bin\shutdown.bat"
 docker compose down             # DB까지 내릴 때
 ```
